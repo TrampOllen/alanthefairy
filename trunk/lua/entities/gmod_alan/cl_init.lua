@@ -6,7 +6,7 @@ local yellowflare = "effects/yellowflare"
 local trail = Material("trails/laser")
 
 local sunbeams = CreateClientConVar("alan_sunbeams", "1", true, false)
-language.Add("gmod_alan", "Fairy")
+language.Add("gmod_alan", "Alan")
 function ENT:Initialize()
 	self.speed = 6.3
 	self.flaplength = 50
