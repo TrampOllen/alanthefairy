@@ -1,0 +1,11 @@
+"AddonInfo"
+{
+	"name"		"Fairy"
+	"version"	"1.3b"
+	"author_name"	"Robbis_1 (aka Killer HAHA)"
+	"author_url"	""
+	
+	"info"		"A cute litte fairy that follow you around and can do stuff for you"
+	
+	"override"	"0"
+}
