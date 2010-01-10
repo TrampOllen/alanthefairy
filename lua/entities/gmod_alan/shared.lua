@@ -5,8 +5,8 @@ ENT.PrintName = "Alan"
 ENT.Author = "CapsAdmin"
 ENT.Contact = "sboyto@gmail.com"
 
-ENT.Spawnable	= true
-ENT.AdminSpawnable = false
+ENT.Spawnable	= false
+ENT.AdminSpawnable = true
 
 function ENT:SetupDataTables()
 	self:DTVar("Float", 0, "size")
