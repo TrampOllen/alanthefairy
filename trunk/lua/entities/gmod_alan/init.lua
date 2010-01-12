@@ -49,7 +49,7 @@ function ENT:Initialize()
 		physicsobject:SetMaterial("gmod_bouncy")
 	end
 	
-	self.ai = AISYS:Create(self)
+	self.ai = AISYS:Create(self, FAIRY_ACTIONS)
 	self.ai:RunAction("CoreFairyBehaviour")
 	self:InitializeHooks(self.ai)
 end
@@ -99,7 +99,10 @@ function ENT:PhysicsSimulate( physicsobject, deltatime )
 	self.smoothsphererandom = self.smoothsphererandom + ((self.sphereposition - self.smoothsphererandom)/100)
 	
 	physicsobject:Wake()
-	self.shadowcontrol.secondstoarrive = 0.5
+	self.shadowcontrol.secondstoarrive = math.min(
+		self:GetPos():Distance(self.target_position or self:GetPos())/100+0.001,
+		0.5
+	)
 	self.shadowcontrol.pos = self.target_position or self:GetPos() -- self.smoothsphererandom)
 	self.shadowcontrol.angle = self.target_angle or self:GetVelocity():Angle()
 	self.shadowcontrol.maxangular = 100000
@@ -117,9 +120,11 @@ function ENT:GetEyeTrace()
 end
 
 function ENT:GetWeaponTrace()
-	if not self.activeweapon then return end
-	local attachment = self.activeweapon:GetAttachment(1)
-	return util.QuickTrace(attachment.Pos, attachment.Ang:Forward()*1000000, {self.activeweapon, self})
+	if self.activeweapon then
+		local attachment = self.activeweapon:GetAttachment(1)
+		return util.QuickTrace(attachment.Pos, attachment.Ang:Forward()*1000000, {self.activeweapon, self})
+	end
+	return util.QuickTrace(self:GetPos(), self:GetAngles():Forward()*1000000, {self})
 end
 
 function ENT:Think()

@@ -14,7 +14,11 @@ local aient_meta = {
 		if self.current_action then
 			dbg(self, "(#%s) Suspending action %s", #self.action_chain, self.current_action.__id)
 			if self.current_action.OnSuspend then
-				self.current_action:OnSuspend(action, params)
+				local result, refuse_reason = self.current_action:OnSuspend(action_name, params)
+				if result then
+					dbg(self, "Action %s refuses to let action %s start: %q", self.current_action.__id, action_name, refuse_reason)
+					return
+				end
 			end
 		end
 		local action = setmetatable({
@@ -38,9 +42,11 @@ local aient_meta = {
 	Update = function(self)
 		for i = 1, #self.queued_events do
 			local event, handled = self.queued_events[i], false
-			for k, action in pairs(self.action_chain) do
-				if action.OnEvent then
-					handled = handled or action:OnEvent(event.name, event.params, handled)
+			for k = #self.action_chain, 1, -1 do
+				local action = self.action_chain[k]
+				if action and action.OnEvent and action:OnEvent(event.name, event.params, handled) then
+					dbg(self, "Event %s handled by action %s", event.name, action.__id)
+					handled = true
 				end
 			end
 		end
@@ -131,12 +137,12 @@ function AISYS:RegisterAction(name)
 	return t
 end
 
-function AISYS:Create(ent)
+function AISYS:Create(ent, list)
 	return setmetatable({
 		action_chain = {},
 		ent = ent,
 		queued_events = {},
-		actions = {}
+		actions = list or {}
 	}, aient_meta)
 end
 

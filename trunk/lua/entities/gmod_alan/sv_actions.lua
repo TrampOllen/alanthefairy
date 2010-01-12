@@ -1,4 +1,68 @@
-include("core_ai.lua")
+require("core_ai")
+FAIRY_ACTIONS = {}
+
+function ENT:Weld(ent1, ent2)
+	self.ai:RunAction("Weld", {
+		ent1 = ent1,
+		ent2 = ent2,
+	})
+end
+
+do local ACTION = AISYS:RegisterAction("Weld", FAIRY_ACTIONS)
+	function ACTION:OnStart()
+		self.ent:SelectWeapon("tool")
+		self.mover = self:RunAction("MoveTo", {--"MoveToVisibility", {
+			ent = self.params.ent1,
+			min_distance = 50,
+			distance = 150,
+			aim = true,
+			aim_hit = true,
+			offset = Vector(0, 0, 65),
+			aim_offset = Vector(0, 0, -65)
+		})
+		self.stage = 1
+	end
+	function ACTION:OnResume(from_action, result)
+		if not self.params.ent1:IsValid() then
+			return self.STATE_INVALID, "Entity 1 is no longer valid"
+		end
+		if not self.params.ent2:IsValid() then
+			return self.STATE_INVALID, "Entity 2 is no longer valid"
+		end
+		if from_action == self.mover and result then
+			if self.stage == 1 then
+				self.ent:ToolEffect()
+				self.mover = self:RunAction("MoveTo", {--"MoveToVisibility", {
+					ent = self.params.ent2,
+					min_distance = 50,
+					distance = 100,
+					aim = true,
+					aim_hit = true,
+					offset = Vector(0),
+				})
+				self.stage = 2
+			elseif self.stage == 2 then
+				self.ent:ToolEffect()
+				constraint.Weld(self.params.ent1, self.params.ent2, 0, 0, 0, true)
+				return self.STATE_FINISHED, "Entities have been welded"
+			end
+		else
+			self.sys:FinishAction(self.mover, "Recreating due to interuption")
+			self.mover = self:RunAction("MoveTo", {--"MoveToVisibility", {
+				ent = self.stage == 1 and self.params.ent1 or self.params.ent2,
+				min_distance = 50,
+				distance = 100,
+				aim = true,
+				aim_hit = true,
+				offset = Vector(0),
+			})
+			self.ent:SelectWeapon("tool")
+		end
+	end
+	function ACTION:OnFinish()
+		self.ent:SelectWeapon("none")
+	end
+end
 
 function ENT:Bonk(time, playsound)
 	self.ai:RunAction("Bonk", {
@@ -6,7 +70,7 @@ function ENT:Bonk(time, playsound)
 		silent = not playersound,
 	})
 end
-do local ACTION = AISYS:RegisterAction("Bonk")
+do local ACTION = AISYS:RegisterAction("Bonk", FAIRY_ACTIONS)
 	function ACTION:OnStart()
 		self.ent:StopMotionController()
 		if not self.params.silent then
@@ -45,7 +109,7 @@ function ENT:Heal(ply, health, rate)
 		rate = rate
 	})
 end
-do local ACTION = AISYS:RegisterAction("Heal")
+do local ACTION = AISYS:RegisterAction("Heal", FAIRY_ACTIONS)
 	function ACTION:OnStart()
 		self.number = 0
 		self.current_health = self.params.ply:Health()
@@ -80,7 +144,7 @@ function ENT:Follow(ply)
 		offset = offset
 	})
 end
-do local ACTION = AISYS:RegisterAction("Follow")
+do local ACTION = AISYS:RegisterAction("Follow", FAIRY_ACTIONS)
 	function ACTION:OnStart()
 		self.offset = self.params.offset or Vector(0)
 		self.distance = self.params.distance or 100
@@ -91,15 +155,22 @@ do local ACTION = AISYS:RegisterAction("Follow")
 	end
 	
 	function ACTION:OnUpdate()
-		if self.params.aim then
-			self.ent.target_angle = (self.params.ply:GetPos() + self.offset - self.ent:GetPos()):Angle()
-		end
-		self.ent.target_position = self.params.ply:GetPos() + self.params.offset or Vector(0)
+		local dir = (self.params.ent:GetPos() + self.offset - self.ent:GetPos())
+		self.ent.target_position = self.params.ent:GetPos()
+			+self.params.offset
+				-dir:GetNormalized()*(math.min(
+					self.distance,
+					math.max(
+						dir:Length(),
+						self.params.min_distance or 0
+					)
+				)*0.8)
+		self.ent.target_angle = (self.ent.target_position-self.ent:GetPos()):Angle()
 	end
 end
 
 -- core action
-do local ACTION = AISYS:RegisterAction("MoveTo")
+do local ACTION = AISYS:RegisterAction("MoveTo", FAIRY_ACTIONS)
 	function ACTION:OnStart()
 		self.offset = self.params.offset or Vector(0)
 		self.distance = self.params.distance or 100
@@ -116,18 +187,24 @@ do local ACTION = AISYS:RegisterAction("MoveTo")
 	function ACTION:OnUpdate()
 		local dir = (self.params.ent:GetPos() + self.offset - self.ent:GetPos())
 		if self.params.aim then
-			self.ent.target_angle = dir:Angle()
+			self.ent.target_angle = (dir + (self.params.aim_offset or Vector())):Angle()
 		end
 		self.ent.target_position = self.params.ent:GetPos()
 			+self.params.offset
 				-dir:GetNormalized()*(math.min(
 					self.distance,
-					dir:Length()
+					math.max(
+						dir:Length(),
+						self.params.min_distance or 0
+					)
 				)*0.8)
 		if self.ent:GetPos():Distance(self.params.ent:GetPos()) < self.distance and (
 			not self.params.aim
 			or self.ent:GetAngles():Forward():Dot(self.ent.target_angle:Forward()) > self.params.accuracy
-		 ) then
+		  ) and (
+		 	not self.params.aim_hit
+		 	or self.ent:GetWeaponTrace().Entity == self.params.ent
+		  ) then
 			self.success = true
 			return self.STATE_FINISHED, "Arrived to target"
 		end
@@ -135,7 +212,7 @@ do local ACTION = AISYS:RegisterAction("MoveTo")
 	
 	function ACTION:OnFinish()
 		self.sys:OnEvent("TargetReached", {ent = self.params.ent})
-		return true--self.success
+		return self.success
 	end
 end
 
@@ -146,14 +223,17 @@ function ENT:Kill(ply, health, weapon)
 		weapon = weapon,
 	})
 end
-do local ACTION = AISYS:RegisterAction("Kill")
+
+do local ACTION = AISYS:RegisterAction("Kill", FAIRY_ACTIONS)
 	function ACTION:OnStart()
 		self.ent:SelectWeapon(self.params.weapon)
 		self.mover = self:RunAction("MoveTo", {
 			ent = self.params.ply, 
-			distance = self.ent.activeweapon.data.distance or 100, 
+			distance = self.ent.activeweapon.data.distance or 100,
+			min_distance = self.ent.activeweapon.data.min_distance or 0,
 			offset = Vector(0,0,50),
 			aim = true,
+			aim_hit = true,
 		})
 	end
 	
@@ -165,9 +245,9 @@ do local ACTION = AISYS:RegisterAction("Kill")
 			if self.ent:GetWeaponTrace().Entity == self.params.ply then
 				self.ent:FireWeapon()
 			end
-			if not result then
-				return self.STATE_INVALID, "I couldn't follow the target"
-			end
+			--if not result then
+			--	return self.STATE_INVALID, "I couldn't follow the target"
+			--end
 		elseif not self.params.ply:Alive() or self.params.ply:Health() <= self.params.health then
 			return self.STATE_INVALID, "My target is already hurt"
 		else
@@ -175,8 +255,10 @@ do local ACTION = AISYS:RegisterAction("Kill")
 			self.mover = self:RunAction("MoveTo", {
 				ent = self.params.ply, 
 				distance = self.ent.activeweapon.data.distance or 100, 
+				min_distance = self.ent.activeweapon.data.min_distance or 0,
 				offset = Vector(0,0,50),
 				aim = true,
+				aim_hit = true,
 			})
 		end
 	end
@@ -185,12 +267,13 @@ do local ACTION = AISYS:RegisterAction("Kill")
 		if self.finished then
 			return self.STATE_FINISHED, "Shot the target until health reached"
 		end
+		print(":(", self.ent:GetWeaponTrace())
 		if self.ent:GetWeaponTrace().Entity == self.params.ply then
 			self.ent:FireWeapon()
 		else
 			self.mover = self:RunAction("MoveTo", {
-				ent = self.params.ply, 
-				distance = self.ent.activeweapon.data.distance or 100, 
+				ent = self.params.ply,
+				distance = self.ent.activeweapon.data.distance or 100,
 				offset = Vector(0,0,50),
 				aim = true,
 			})
@@ -216,12 +299,29 @@ do local ACTION = AISYS:RegisterAction("Kill")
 		self.sys:OnEvent("TargetKilled", {ply = self.params.ply})
 	end
 end
-do local ACTION = AISYS:RegisterAction("CoreFairyBehaviour")
+
+do local ACTION = AISYS:RegisterAction("CoreFairyBehaviour", FAIRY_ACTIONS)
 	function ACTION:OnUpdate()
-		-- decide what to do
+		-- this is temporary. We'll make it build or whatever later on
+		local closest_dist, closest = 1024
+		for k,ply in pairs(player.GetAll()) do
+			if ply:Alive() and ply:GetPos():Distance(self.ent:GetPos()) < closest_dist then
+				closest = ply
+				closest_dist = ply:GetPos():Distance(self.ent:GetPos())
+			end
+		end
+		if closest then
+			self:RunAction("Follow", {
+				ent = closest,
+				min_distance = 64,
+				distance = 256,
+				offset = Vector(0, 0, 65)
+			})
+		else
+			self:RunAction("_wait", {duration = 5})
+		end
 	end
 	function ACTION:OnEvent(event_name, params, handled)
-		print("handled:", handled)
 		if handled then return end
 		if event_name == "TakeDamage" then
 			self:RunAction("Kill", {

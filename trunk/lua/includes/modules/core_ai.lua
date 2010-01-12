@@ -44,7 +44,7 @@ local aient_meta = {
 			local event, handled = self.queued_events[i], false
 			for k = #self.action_chain, 1, -1 do
 				local action = self.action_chain[k]
-				if action.OnEvent and action:OnEvent(event.name, event.params, handled) then
+				if action and action.OnEvent and action:OnEvent(event.name, event.params, handled) then
 					dbg(self, "Event %s handled by action %s", event.name, action.__id)
 					handled = true
 				end
@@ -137,12 +137,12 @@ function AISYS:RegisterAction(name)
 	return t
 end
 
-function AISYS:Create(ent)
+function AISYS:Create(ent, list)
 	return setmetatable({
 		action_chain = {},
 		ent = ent,
 		queued_events = {},
-		actions = {}
+		actions = list or {}
 	}, aient_meta)
 end
 
