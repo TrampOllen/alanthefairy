@@ -134,9 +134,11 @@ function ENT:GetEyeTrace()
 end
 
 function ENT:GetWeaponTrace()
-	if not self.activeweapon then return end
-	local attachment = self.activeweapon:GetAttachment(1)
-	return util.QuickTrace(attachment.Pos, attachment.Ang:Forward()*1000000, {self.activeweapon, self})
+	if self.activeweapon then
+		local attachment = self.activeweapon:GetAttachment(1)
+		return util.QuickTrace(attachment.Pos, attachment.Ang:Forward()*1000000, {self.activeweapon, self})
+	end
+	return util.QuickTrace(self:GetPos(), self:GetAngles():Forward()*1000000, {self})
 end
 
 function ENT:Think()

@@ -4,7 +4,6 @@ function ENT:InitializeHooks(ai)
 		if entity == self.Entity then
 			ai:OnEvent("TakeDamage", {entity = entity, inflictor = inflictor, attacker = attacker, amount = amount, damageinfo = damageinfo})
 		end
-		print("oh shi-", entity, inflictor, attacker)
 		ai:OnEvent("EntityTakeDamage", {entity = entity, inflictor = inflictor, attacker = attacker, amount = amount, damageinfo = damageinfo})
 	end)
 	

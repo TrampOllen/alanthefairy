@@ -29,7 +29,7 @@ do local ACTION = AISYS:RegisterAction("AttackPlayer")
 	end
 	function ACTION:OnResume(from_action, result)
 		if from_action == self.roll_to and result and not self.failure then
-			self.params.player:Kill()--TakeDamage(100, self.ent)
+			self.params.player:TakeDamage(100, self.ent)
 			self.success = true
 			return self.STATE_FINISHED, "I attacked the player"
 		end

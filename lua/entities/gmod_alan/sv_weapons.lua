@@ -1,9 +1,9 @@
 function ENT:InitializeWeapons()
 	self.weapons = self.weapons or {}
-	self:CreateGun("weapon_357", "models/weapons/W_357.mdl", 50, 0.5, 100, "weapons/357/357_fire3.wav")
-	self:CreateGun("weapon_pistol", "models/weapons/W_pistol.mdl", 10, 0.1, 100, "weapons/pistol/pistol_fire2.wav", self:GetForward()*5, Angle(0,180,0))
-	self:CreateGun("weapon_tmp", "models/weapons/w_smg_tmp.mdl", 10, 0.05, 100, "weapons/tmp/tmp-1.wav")
-	self:CreateGun("weapon_rpg", "models/weapons/w_rocket_launcher.mdl", 0, 1, 400, "weapons/rpg/rocketfire1.wav", self:GetForward()*5, Angle(0,180,0), function(self, attachment)
+	self:CreateGun("weapon_357", "models/weapons/W_357.mdl", 50, 0.5, 100, 0, "weapons/357/357_fire3.wav")
+	self:CreateGun("weapon_pistol", "models/weapons/W_pistol.mdl", 10, 0.1, 100, 0, "weapons/pistol/pistol_fire2.wav", self:GetForward()*5, Angle(0,180,0))
+	self:CreateGun("weapon_tmp", "models/weapons/w_smg_tmp.mdl", 10, 0.05, 100, 0, "weapons/tmp/tmp-1.wav")
+	self:CreateGun("weapon_rpg", "models/weapons/w_rocket_launcher.mdl", 0, 1, 400, 100, "weapons/rpg/rocketfire1.wav", self:GetForward()*5, Angle(0,180,0), function(self, attachment)
 		local rocket = ents.Create("rpg_missile")
 		rocket:SetPos(attachment.Pos+self:GetUp()*30)
 		rocket:SetAngles(attachment.Ang)
@@ -15,7 +15,7 @@ function ENT:InitializeWeapons()
 	end)
 end
 
-function ENT:CreateGun(name, model, damage, delay, distance, sound, offset, angles, custom)
+function ENT:CreateGun(name, model, damage, delay, distance, safety_distance, sound, offset, angles, custom)
 	offset = offset or Vector(0)
 	angles = angles or Angle(0)
 	self.weapons[name] = ents.Create("prop_physics")
@@ -33,6 +33,7 @@ function ENT:CreateGun(name, model, damage, delay, distance, sound, offset, angl
 	self.weapons[name].data.delay = delay
 	self.weapons[name].data.name = name
 	self.weapons[name].data.distance = distance
+	self.weapons[name].data.min_distance = safety_distance
 	self.weapons[name].curtime = CurTime()
 	self.weapons[name].custom = custom
 end
@@ -41,8 +42,13 @@ function ENT:SelectWeapon(mode)
 	for key, weapon in pairs(self.weapons) do
 		weapon:SetNoDraw(true)
 	end
+	if mode == "tool" then
+		self.activeweapon = self.tool self.tool:SetNoDraw(false)
+		return
+	else
+		self.tool:SetNoDraw(true)
+	end
 	if mode == "none" then self.activeweapon = nil return end
-	if mode == "tool" then self.activeweapon = self.tool self.tool:SetNoDraw(false) return end
 	if not self.weapons[mode] then error("Unknown weapon type!") end
 	self.weapons[mode]:SetNoDraw(false)
 	self:EmitSound("physics/meta/weapon_impac_soft"..math.random(3), 100, math.random(90,110))
