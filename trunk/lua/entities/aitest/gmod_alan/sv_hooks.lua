@@ -1,7 +1,14 @@
 function ENT:InitializeHooks()
 	
 	hook.Add("EntityTakeDamage", "Alan", function(entity, inflictor, attacker, amount, damageinfo )
-		self.ai:OnEvent("EntityTakeDamage", {entity = entity, inflictor = inflictor, attacker = attacker, amount = amount, damageinfo = damageinfo})
+		if entity == self then
+			self:SelectRandomWeapon()
+			self:Kill(attacker, function(self) 
+				self:SelectWeapon("none")
+				self:Follow(table.Random(player.GetAll()))
+			end)
+			self:Drop()
+		end
 	end)
 
 	hook.Add("PhysgunPickup", "Alan", function(ply, entity)

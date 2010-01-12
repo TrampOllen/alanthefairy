@@ -108,32 +108,3 @@ end)
 function ENT:Chat(uniqueid, question, name, callback)
 	LodgeRequest(name, "unknown", uniqueid, question, callback)
 end
-
-
-function ENT:Greet(entity)
-	self:Follow(entity, 200, function() 
-		self:Respond(entity, "Hey")
-	end)
-end
-
-function ENT:SayToPlayer(ply, text)
-	umsg.Start( "Alan:ToPlayer" )
-		umsg.Entity( ply )
-		umsg.String( ply:UniqueID() )
-		umsg.String( text )
-	umsg.End()
-end
-
-function ENT:Respond(ply, text)
-	self.dt.isthinking = true
-	self:Chat(ply:UniqueID(), text, GetConVar("alan_name"):GetString(), function(id, question, result, name, gender) 
-		self:SayToPlayer(ply, result)
-		self.dt.isthinking = false
-	end)
-end
-
-function ENT:Say(text)
-	umsg.Start( "Alan:Respond" )
-		umsg.String( text )
-	umsg.End()
-end
