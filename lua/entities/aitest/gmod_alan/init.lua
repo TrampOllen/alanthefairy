@@ -11,7 +11,6 @@ include("sv_hooks.lua")
 include("sv_weapons.lua")
 include("sv_build.lua")
 include("sv_alan.lua")
-include("sv_actions.lua")
 
 local alan_name = CreateConVar("alan_name", "Alan", true, false)
 local alan_color = CreateConVar("alan_color", "200 255 200", true, false)
@@ -36,6 +35,12 @@ function ENT:Initialize()
 	
 	self.curtime = CurTime()
 	self.randomspheretime = math.Rand(1,3)
+	
+	self.sinx = math.Rand(self.dt.size/5,self.dt.size*100)
+	self.siny = math.Rand(self.dt.size/5,self.dt.size*100)
+	self.sinz = math.Rand(self.dt.size/5,self.dt.size*100)
+	self.sinxspeed = math.Rand(0.1,0.5)
+	self.sinyspeed = math.Rand(0.1,0.5)
 		
 	alan = self
 	
@@ -49,8 +54,6 @@ function ENT:Initialize()
 		physicsobject:SetMass(self.dt.size*100)
 		physicsobject:SetMaterial("gmod_bouncy")
 	end
-	
-	self.ai = AISYS:Create(self)
 end
 
 function ENT:SpawnFunction(ply, trace)
@@ -114,8 +117,8 @@ function ENT:PhysicsSimulate( physicsobject, deltatime )
 	
 	physicsobject:Wake()
 	self.shadowcontrol.secondstoarrive = 0.5
-	self.shadowcontrol.pos = self.target_position or self:GetPos() -- self.smoothsphererandom)
-	self.shadowcontrol.angle = self.target_angle or self:GetVelocity():Angle()
+	self.shadowcontrol.pos = self.position or self.following and (self.following:GetPos() + (self.following:GetAngles():Up() * (self.following:BoundingRadius() + 50)) + self.smoothsphererandom)
+	self.shadowcontrol.angle = self.angle or self:GetVelocity():Angle()
 	self.shadowcontrol.maxangular = 100000
 	self.shadowcontrol.maxangulardamp = 400
 	self.shadowcontrol.maxspeed = 1000000
@@ -157,7 +160,7 @@ function ENT:Think()
 		self.dt.size = size
 		self.lastsize = size
 	end
-	self.ai:Update()
+	
 end
 
 function ENT:SetRandomMovement(boolean)
@@ -179,10 +182,86 @@ function ENT:SetPickedup(bool)
 	end
 end
 
-function ENT:SetActiveEntity(entity)
-	self.active_entity = entity
+function ENT:Follow(entity, thershold, callback)
+	if entity and not entity:IsValid() then return end
+	self.following = entity
+	self.position = nil
+	self:SetRandomMovement(true)
+	if thershold and callback then
+		hook.Add("Think", "Alan Follow "..self:EntIndex(), function()
+			if not self:IsValid() or not entity:IsValid() then hook.Remove("Think", "Alan Follow "..self:EntIndex()) end
+			if self:GetPos():Distance(entity:GetPos()) < thershold then
+				callback(self, entity)
+				hook.Remove("Think", "Alan Follow "..self:EntIndex())
+			end
+		end)
+	end
 end
 
-function ENT:GetActiveEntity(entity)
-	return self.active_entity
+function ENT:LookAt(entity, offset, thershold, hitentity, callback)
+	offset = offset or Angle(0)
+
+	if entity and not entity:IsValid() then return end
+	self:Follow(entity)
+
+	hook.Add("Think", "Alan LookAt "..self:EntIndex(), function()
+		if not self or not entity then 
+			print("hook removed") 
+			self.following = nil 
+			hook.Remove("Think", "Alan LookAt "..self:EntIndex()) 
+		return end
+		local dotproduct = self:GetAngles():Forward():DotProduct( ( entity:GetPos() - self:GetPos() ):Normalize() ) 
+		local trace = self:GetWeaponTrace().Entity
+		self.angle = (entity:GetPos()-self:GetPos()):Angle() + offset
+		if dotproduct >= thershold or hitentity and trace.Entity == entity then
+			callback(self, entity)
+			self.angle = nil
+			self.position = nil
+			hook.Remove("Think", "Alan LookAt "..self:EntIndex())
+		end
+	end)
+end
+
+function ENT:Goto(position, thershold, callback)
+	hook.Add("Think", "Alan Goto "..self:EntIndex(), function()
+		self.position = position
+		if self:GetPos():Distance(position) < thershold then
+			hook.Remove("Think", "Alan Goto "..self:EntIndex())
+			if callback then callback(self, entity) end
+		end
+	end)
+end
+
+function ENT:CancelActivities()
+	hook.Remove("Think", "Alan Follow "..self:EntIndex())
+	hook.Remove("Think", "Alan LookAt "..self:EntIndex())
+	hook.Remove("Think", "Alan Goto "..self:EntIndex())
+end
+
+function ENT:Greet(entity)
+	self:Follow(entity, 200, function() 
+		self:Respond(entity, "Hey")
+	end)
+end
+
+function ENT:SayToPlayer(ply, text)
+	umsg.Start( "Alan:ToPlayer" )
+		umsg.Entity( ply )
+		umsg.String( ply:UniqueID() )
+		umsg.String( text )
+	umsg.End()
+end
+
+function ENT:Respond(ply, text)
+	self.dt.isthinking = true
+	self:Chat(ply:UniqueID(), text, GetConVar("alan_name"):GetString(), function(id, question, result, name, gender) 
+		self:SayToPlayer(ply, result)
+		self.dt.isthinking = false
+	end)
+end
+
+function ENT:Say(text)
+	umsg.Start( "Alan:Respond" )
+		umsg.String( text )
+	umsg.End()
 end

@@ -1,9 +1,9 @@
 function ENT:InitializeWeapons()
 	self.weapons = self.weapons or {}
-	self:CreateGun("weapon_357", "models/weapons/W_357.mdl", 50, 0.5, 100, "weapons/357/357_fire3.wav")
-	self:CreateGun("weapon_pistol", "models/weapons/W_pistol.mdl", 10, 0.1, 100, "weapons/pistol/pistol_fire2.wav", self:GetForward()*5, Angle(0,180,0))
-	self:CreateGun("weapon_tmp", "models/weapons/w_smg_tmp.mdl", 10, 0.05, 100, "weapons/tmp/tmp-1.wav")
-	self:CreateGun("weapon_rpg", "models/weapons/w_rocket_launcher.mdl", 0, 1, 400, "weapons/rpg/rocketfire1.wav", self:GetForward()*5, Angle(0,180,0), function(self, attachment)
+	self:CreateGun("weapon_357", "models/weapons/W_357.mdl", 50, 0.5, "weapons/357/357_fire3.wav")
+	self:CreateGun("weapon_pistol", "models/weapons/W_pistol.mdl", 10, 0.1, "weapons/pistol/pistol_fire2.wav", self:GetForward()*5, Angle(0,180,0))
+	self:CreateGun("weapon_tmp", "models/weapons/w_smg_tmp.mdl", 10, 0.05, "weapons/tmp/tmp-1.wav")
+	self:CreateGun("weapon_rpg", "models/weapons/w_rocket_launcher.mdl", 0, 1, "weapons/rpg/rocketfire1.wav", self:GetForward()*5, Angle(0,180,0), function(self, attachment)
 		local rocket = ents.Create("rpg_missile")
 		rocket:SetPos(attachment.Pos+self:GetUp()*30)
 		rocket:SetAngles(attachment.Ang)
@@ -15,7 +15,7 @@ function ENT:InitializeWeapons()
 	end)
 end
 
-function ENT:CreateGun(name, model, damage, delay, distance, sound, offset, angles, custom)
+function ENT:CreateGun(name, model, damage, delay, sound, offset, angles, custom)
 	offset = offset or Vector(0)
 	angles = angles or Angle(0)
 	self.weapons[name] = ents.Create("prop_physics")
@@ -32,7 +32,6 @@ function ENT:CreateGun(name, model, damage, delay, distance, sound, offset, angl
 	self.weapons[name].data.damage = damage
 	self.weapons[name].data.delay = delay
 	self.weapons[name].data.name = name
-	self.weapons[name].data.distance = distance
 	self.weapons[name].curtime = CurTime()
 	self.weapons[name].custom = custom
 end
@@ -90,6 +89,36 @@ function ENT:CreateWeaponOnRemove()
 		weapon:SetAngles(self.activeweapon:GetAngles())
 		weapon:Spawn()
 	end
+end
+
+function ENT:Kill(entity, callback)
+	if entity:IsPlayer() or entity:IsNPC() then
+		hook.Add("Think", "Alan Attack "..self:EntIndex(), function()
+			
+			if GetConVar("sbox_godmode"):GetBool() or entity.alan_god then
+				self:CancelKill()
+				self:Cheater(entity)
+				return
+			end
+			
+			if not entity or (entity:IsPlayer() and not entity:Alive()) then 
+				self:CancelKill()
+				self.angle = nil 
+				if callback then
+					callback(self)
+				end
+			return end --fix me!
+			self.angle = (entity:GetPos() + Vector(0,0,40) - self:GetPos()):Angle()
+			if self:GetWeaponTrace().Entity == entity then self:FireWeapon() end
+			self:Follow(entity)
+		end)
+	end
+end
+
+function ENT:CancelKill()
+	hook.Remove("Think", "Alan Attack "..self:EntIndex())
+	self.angle = nil
+	self:SelectWeapon("none")
 end
 
 function ENT:SelectRandomWeapon()
