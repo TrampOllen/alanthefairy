@@ -1,44 +1,48 @@
-function ENT:InitializeHooks()
+function ENT:InitializeHooks(ai)
 	
-	hook.Add("EntityTakeDamage", "Alan", function(entity, inflictor, attacker, amount, damageinfo )
-		self.ai:OnEvent("EntityTakeDamage", {entity = entity, inflictor = inflictor, attacker = attacker, amount = amount, damageinfo = damageinfo})
+	hook.Add("EntityTakeDamage", "Alan"..self:EntIndex(), function(entity, inflictor, attacker, amount, damageinfo)
+		if entity == self.Entity then
+			ai:OnEvent("TakeDamage", {entity = entity, inflictor = inflictor, attacker = attacker, amount = amount, damageinfo = damageinfo})
+		end
+		print("oh shi-", entity, inflictor, attacker)
+		ai:OnEvent("EntityTakeDamage", {entity = entity, inflictor = inflictor, attacker = attacker, amount = amount, damageinfo = damageinfo})
 	end)
-
-	hook.Add("PhysgunPickup", "Alan", function(ply, entity)
-		if entity:GetClass() == "gmod_alan" then
+	
+	hook.Add("PhysgunPickup", "Alan"..self:EntIndex(), function(ply, entity)
+		if entity == self.Entity then
 			entity:SetPickedup(true)
 		end
 	end)
 
-	hook.Add("PhysgunDrop", "Alan", function(ply, entity)
-		if entity:GetClass() == "gmod_alan" then
+	hook.Add("PhysgunDrop", "Alan"..self:EntIndex(), function(ply, entity)
+		if entity == self.Entity then
 			entity:SetPickedup(false)
 		end
 	end)
 
-	hook.Add("GravGunOnPickedUp", "Alan", function(ply, entity)
-		if entity:GetClass() == "gmod_alan" then
+	hook.Add("GravGunOnPickedUp", "Alan"..self:EntIndex(), function(ply, entity)
+		if entity == self.Entity then
 			entity:SetPickedup(true)
 		end
 	end)
 
-	hook.Add("GravGunOnDropped", "Alan", function(ply, entity)
-		if entity:GetClass() == "gmod_alan" then
+	hook.Add("GravGunOnDropped", "Alan"..self:EntIndex(), function(ply, entity)
+		if entity == self.Entity then
 			entity:SetPickedup(false)
 		end
 	end)
 
-	hook.Add("GravGunPunt", "Alan", function(ply, entity)
-		if entity:GetClass() == "gmod_alan" then
+	hook.Add("GravGunPunt", "Alan"..self:EntIndex(), function(ply, entity)
+		if entity == self.Entity then
 			entity:Bonk(2)
 		end
 	end)
 
-	hook.Add("PlayerSpawnedProp", "test", function(ply, mdl, entity)
+	hook.Add("PlayerSpawnedProp", "Alan"..self:EntIndex(), function(ply, mdl, entity)
 		lastent = entity
 	end)
 
-	hook.Add("PlayerSay", "Alan", function(ply, text)
+	hook.Add("PlayerSay", "Alan"..self:EntIndex(), function(ply, text)
 		if not self:IsValid() then return end
 		local name = string.lower(GetConVar("alan_name"):GetString())
 		if string.find(text, "!lua") then return end

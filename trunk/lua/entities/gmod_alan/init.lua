@@ -18,7 +18,6 @@ local alan_color = CreateConVar("alan_color", "200 255 200", true, false)
 local alan_size = CreateConVar("alan_size", "1", true, false)
 
 function ENT:Initialize()
-	self:InitializeHooks()
 	self.dt.size = alan_size:GetFloat()
 	local color = string.Explode(" ", alan_color:GetString())
 	self:SetColor(color[1],color[2],color[3], 255)
@@ -51,6 +50,8 @@ function ENT:Initialize()
 	end
 	
 	self.ai = AISYS:Create(self)
+	self.ai:RunAction("CoreFairyBehaviour")
+	self:InitializeHooks(self.ai)
 end
 
 function ENT:SpawnFunction(ply, trace)
@@ -65,7 +66,7 @@ end
 
 function ENT:PhysicsCollide(data, physicsobject)
 	if data.Speed > 50 and data.DeltaTime > 0.2  then
-		self:Bonk(data.Speed / 100, true)
+		--self:Bonk(data.Speed / 100, true)
 	end
 end
 
@@ -74,23 +75,8 @@ function ENT:AddChatCommand(command, callback)
 	self.commands[command] = callback
 end
 
-function ENT:Bonk(time, playsound)
-	self:StopMotionController()
-	if playsound then self:EmitSound("alan/bonk.wav", 100, math.random(90, 110)) end
-	self.dt.bonked = true
-	self:GetPhysicsObject():EnableGravity(true)
-	timer.Create("Alan Bonked"..self:EntIndex(), time, 1, function() 
-		if self:IsValid() then 
-			self.dt.bonked = false 
-			self:GetPhysicsObject():EnableGravity(false)
-			self:StartMotionController()
-			self:PhysWake()
-		end 
-	end)
-end
-
 function ENT:OnTakeDamage(damageinfo)
-	self:Bonk(math.Clamp(damageinfo:GetDamage(),0, 5))
+	--self:Bonk(math.Clamp(damageinfo:GetDamage(),0, 5))
 end
 
 function ENT:OnRemove()

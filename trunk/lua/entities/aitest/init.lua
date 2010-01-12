@@ -28,7 +28,7 @@ do local ACTION = AISYS:RegisterAction("AttackPlayer")
 		})
 	end
 	function ACTION:OnResume(from_action, result)
-		if from_action == "RollTo" and result and not self.failure then
+		if from_action == self.roll_to and result and not self.failure then
 			self.params.player:Kill()--TakeDamage(100, self.ent)
 			self.success = true
 			return self.STATE_FINISHED, "I attacked the player"
@@ -93,24 +93,24 @@ do local ACTION = AISYS:RegisterAction("AttackRandomPlayer")
 end
 do local ACTION = AISYS:RegisterAction("CoreRollingBehaviour")
 	function ACTION:OnStart()
-		self:RunAction("AttackRandomPlayer", {
+		self.random_attack = self:RunAction("AttackRandomPlayer", {
 			max_distance = 1024*2
 		})
 	end
 	function ACTION:OnResume(from_action, result)
-		if from_actiton == "AttackRandomPlayer" then
+		if from_actiton == self.random_attack then
 			-- find a new player to attack
-			self:RunAction("AttackRandomPlayer", {
+			self.random_attack = self:RunAction("AttackRandomPlayer", {
 				max_distance = 1024*2
 			})
-		elseif from_action == "_wait" then
+		elseif from_action == self._wait then
 			self:RunAction("AttackRandomPlayer", {
 				max_distance = 1024*2
 			})
 		end
 	end
 	function ACTION:OnUpdate()
-		self:RunAction("_wait", {duration = 5})
+		self._wait = self:RunAction("_wait", {duration = 5})
 	end
 	function ACTION:OnEvent(event, params)
 		if event == "TakeDamage" then
