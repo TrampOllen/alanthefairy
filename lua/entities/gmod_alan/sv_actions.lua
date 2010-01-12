@@ -221,6 +221,7 @@ do local ACTION = AISYS:RegisterAction("CoreFairyBehaviour")
 		-- decide what to do
 	end
 	function ACTION:OnEvent(event_name, params, handled)
+		print("handled:", handled)
 		if handled then return end
 		if event_name == "TakeDamage" then
 			self:RunAction("Kill", {

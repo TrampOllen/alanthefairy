@@ -52,10 +52,10 @@ end
 function ENT:FireWeapon()
 	if not self.activeweapon then return end
 	if self.activeweapon.curtime + self.activeweapon.data.delay <= CurTime() then
+		self.activeweapon.curtime = CurTime()
+		self.activeweapon:EmitSound(self.activeweapon.data.sound)
 		if self.activeweapon.custom then
 			self.activeweapon.custom(self, self.activeweapon:GetAttachment(1))
-			self.activeweapon:EmitSound(self.activeweapon.data.sound)
-			self.activeweapon.curtime = CurTime()
 			return
 		end
 		local bullet = {}
@@ -66,9 +66,7 @@ function ENT:FireWeapon()
 		bullet.Force = 1
 		bullet.Attacker = self 
 		bullet.Damage = self.activeweapon.data.damage
-		self.activeweapon:FireBullets( bullet )
-		self.activeweapon:EmitSound(self.activeweapon.data.sound)
-		self.activeweapon.curtime = CurTime()
+		self.activeweapon:FireBullets(bullet)
 	end
 end
 

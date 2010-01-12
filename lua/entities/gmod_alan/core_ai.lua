@@ -42,11 +42,11 @@ local aient_meta = {
 	Update = function(self)
 		for i = 1, #self.queued_events do
 			local event, handled = self.queued_events[i], false
-			for k, action in pairs(self.action_chain) do
-				if action.OnEvent then
-					handled = action:OnEvent(event.name, event.params, handled)
-						and dbg(self, "Event %s handled by action %s", event.name, action.__id)
-						or handled
+			for k = #self.action_chain, 1, -1 do
+				local action = self.action_chain[k]
+				if action.OnEvent and action:OnEvent(event.name, event.params, handled) then
+					dbg(self, "Event %s handled by action %s", event.name, action.__id)
+					handled = true
 				end
 			end
 		end
