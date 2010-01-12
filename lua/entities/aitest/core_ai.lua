@@ -1,7 +1,7 @@
 AISYS = {
 	CV_Debug = CreateConVar("aisys_debug", "0"),
 	debug = function(it, msg, ...)
-		if AISYS.CV_Debug:GetBool() then
+		if true then--AISYS.CV_Debug:GetBool() then
 			print((it.current_action and it.current_action.__id.." " or "")..string.format(msg, ...))
 		end
 	end,
@@ -37,16 +37,10 @@ local aient_meta = {
 	end,
 	Update = function(self)
 		for i = 1, #self.queued_events do
-			local event = self.queued_events[i]
+			local event, handled = self.queued_events[i], false
 			for k, action in pairs(self.action_chain) do
-				local result, reason
 				if action.OnEvent then
-					result, reason = action:OnEvent(event.name, event.params)
-				end
-				if result == true then
-					self:FinishAction(action, reason, false, "Event!")
-				elseif result == false then
-					self:FinishAction(action, reason, true, "Event!")
+					handled = handled or action:OnEvent(event.name, event.params, handled)
 				end
 			end
 		end
@@ -96,7 +90,7 @@ local aient_meta = {
 			self.current_action = buried_action
 			local result, reason
 			if buried_action.OnResume then
-				result, reason = buried_action:OnResume(action.__id, finish_result)
+				result, reason = buried_action:OnResume(action, finish_result)
 			end
 			if result == true then
 				self:FinishAction(buried_action, reason, false, "Resume!")
