@@ -18,7 +18,7 @@ function ENT:Weld(ent1, ent2)
 		ent1 = ent1,
 		ent2 = ent2,
 		callback = function(e1, e2)
-			constraint.Weld(self.params.ent1, self.params.ent2, 0, 0, 0, true)
+			constraint.Weld(e1, e2, 0, 0, 0, true)
 		end
 	})
 end
@@ -36,6 +36,7 @@ do local ACTION = AISYS:RegisterAction("TwoEntTool", FAIRY_ACTIONS)
 			aim_offset = Vector(0, 0, -65)
 		})
 		self.stage = 1
+		self.ent:SetRandomMovement(false)
 	end
 	function ACTION:OnResume(from_action, result)
 		if not self.params.ent1:IsValid() then
@@ -92,6 +93,7 @@ do local ACTION = AISYS:RegisterAction("Bonk", FAIRY_ACTIONS)
 		self.ent:StopMotionController()
 		if not self.params.silent then
 			self.ent:EmitSound("alan/bonk.wav", 100, math.random(90, 110))
+			self.ent:EmitSound("alan/nymph/NymphHit_0"..math.random(4)..".mp3", 100, math.random(90, 110))
 		end
 		self.ent.dt.bonked = true
 		self.ent:GetPhysicsObject():EnableGravity(true)
@@ -101,6 +103,7 @@ do local ACTION = AISYS:RegisterAction("Bonk", FAIRY_ACTIONS)
 		if for_action == "Bonk" then -- let's merge the two
 			if not params.silent then
 				self.ent:EmitSound("alan/bonk.wav", 100, math.random(90, 110))
+				self.ent:EmitSound("alan/nymph/NymphHit_0"..math.random(4)..".mp3", 100, math.random(90, 110))
 			end
 			self.end_time = self.end_time+params.duration
 			return true, "I'm merging the two bonk times"
@@ -135,24 +138,32 @@ do local ACTION = AISYS:RegisterAction("Heal", FAIRY_ACTIONS)
 			min_distance = self.params.min_distance or 0,
 			offset = Vector(0,0,65),
 		})
-		self.last_time = nil
+		self.ent:SetRandomMovement(false)
+		--self.last_time = nil
+		self.counter = 0
+		self.starting_health = self.params.ply:Health()
 	end
 	
 	function ACTION:OnResume()
-		self.last_time = nil
+		--self.last_time = nil
+		self.starting_health = self.params.ply:Health()
 	end
 	
 	function ACTION:OnUpdate()
+		self.counter = self.counter or 0 --for some reason it's nil
+		self.starting_health = self.starting_health or self.params.ply:Health()
 		if self.ent:GetPos():Distance(self.params.ply:GetPos()+Vector(0,0,65)) < (self.params.distance or 15) then
 			self.params.ply:SetHealth(math.min(
-					self.params.ply:Health()
-						+(CurTime()-(self.last_time or CurTime()))*self.rate,
+					self.starting_health+self.counter,
 					self.params.health
+					--	+(CurTime()-(self.last_time or CurTime()))*self.params.rate,
+					--self.params.health
 			))
 			if self.params.ply:Health() == self.params.health then
 				return self.STATE_FINISHED, "I healed the player"
 			end
-			self.last_time = CurTime()
+			--self.last_time = CurTime()
+			self.counter = self.counter + self.params.rate
 		else
 			self.mover = self:RunAction("MoveTo", {
 				ent = self.params.ply, 
@@ -178,6 +189,7 @@ do local ACTION = AISYS:RegisterAction("Follow", FAIRY_ACTIONS)
 	function ACTION:OnStart()
 		self.offset = self.params.offset or Vector(0)
 		self.distance = self.params.distance or 100
+		self.ent:SetRandomMovement(true)
 	end
 	
 	function ACTION:OnResume()
@@ -185,6 +197,7 @@ do local ACTION = AISYS:RegisterAction("Follow", FAIRY_ACTIONS)
 	end
 	
 	function ACTION:OnUpdate()
+		if not ValidEntity(self.params.ent) then return self.STATE_INVALID, "The one I'm following is not valid" end
 		local dir = (self.params.ent:GetPos() + self.offset - self.ent:GetPos())
 		self.ent.target_position = self.params.ent:GetPos()
 			+self.params.offset
@@ -208,6 +221,7 @@ do local ACTION = AISYS:RegisterAction("MoveTo", FAIRY_ACTIONS)
 			self.params.accuracy = self.params.accuracy or 0.8
 		end
 		self.success = false
+		self.ent:SetRandomMovement(false)
 	end
 	
 	function ACTION:OnResume()
@@ -215,6 +229,7 @@ do local ACTION = AISYS:RegisterAction("MoveTo", FAIRY_ACTIONS)
 	end
 	
 	function ACTION:OnUpdate()
+		if not self.ent:IsValid() then return self.STATE_INVALID, "Entity is invalid" end
 		local dir = (self.params.ent:GetPos() + self.offset - self.ent:GetPos())
 		if self.params.aim then
 			self.ent.target_angle = (dir + (self.params.aim_offset or Vector())):Angle()
@@ -228,7 +243,7 @@ do local ACTION = AISYS:RegisterAction("MoveTo", FAIRY_ACTIONS)
 						self.params.min_distance or 0
 					)
 				)*0.8)
-		if self.ent:GetPos():Distance(self.params.ent:GetPos()) < self.distance and (
+		if self.ent:GetPos():Distance(self.params.ent:GetPos()+self.params.offset) < self.distance and (
 			not self.params.aim
 			or self.ent:GetAngles():Forward():Dot(self.ent.target_angle:Forward()) > self.params.accuracy
 		  ) and (
@@ -256,7 +271,11 @@ end
 
 do local ACTION = AISYS:RegisterAction("Kill", FAIRY_ACTIONS)
 	function ACTION:OnStart()
+		if GetConVar("sbox_godmode"):GetBool() or self.params.ply.alan_god then
+			return self.STATE_INVALID, "God mode is on"
+		end
 		self.ent:SelectWeapon(self.params.weapon)
+		self.ent:SetRandomMovement(false)
 		self.mover = self:RunAction("MoveTo", {
 			ent = self.params.ply, 
 			distance = self.ent.activeweapon.data.distance or 100,
@@ -303,7 +322,7 @@ do local ACTION = AISYS:RegisterAction("Kill", FAIRY_ACTIONS)
 		else
 			self.mover = self:RunAction("MoveTo", {
 				ent = self.params.ply,
-				distance = self.ent.activeweapon.data.distance or 100,
+				distance = self.activeweapon and self.ent.activeweapon.data.distance or 100,
 				offset = Vector(0,0,50),
 				aim = true,
 			})
@@ -327,6 +346,7 @@ do local ACTION = AISYS:RegisterAction("Kill", FAIRY_ACTIONS)
 	function ACTION:OnFinish()
 		self.ent:SelectWeapon("none")
 		self.sys:OnEvent("TargetKilled", {ply = self.params.ply})
+		self.ent:SetRandomMovement(true)
 	end
 end
 

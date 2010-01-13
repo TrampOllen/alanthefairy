@@ -4,7 +4,7 @@ function ENT:InitializeHooks(ai)
 		if entity == self.Entity then
 			ai:OnEvent("TakeDamage", {entity = entity, inflictor = inflictor, attacker = attacker, amount = amount, damageinfo = damageinfo})
 		end
-		ai:OnEvent("EntityTakeDamage", {entity = entity, inflictor = inflictor, attacker = attacker, amount = amount, damageinfo = damageinfo})
+	--	ai:OnEvent("EntityTakeDamage", {entity = entity, inflictor = inflictor, attacker = attacker, amount = amount, damageinfo = damageinfo})
 	end)
 	
 	hook.Add("PhysgunPickup", "Alan"..self:EntIndex(), function(ply, entity)
@@ -33,7 +33,7 @@ function ENT:InitializeHooks(ai)
 
 	hook.Add("GravGunPunt", "Alan"..self:EntIndex(), function(ply, entity)
 		if entity == self.Entity then
-			entity:Bonk(2)
+			entity:Bonk(2, true)
 		end
 	end)
 
