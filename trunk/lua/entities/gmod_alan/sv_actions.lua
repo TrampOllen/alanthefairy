@@ -1,14 +1,29 @@
 require("core_ai")
 FAIRY_ACTIONS = {}
 
+function ENT:Build(data)
+	print("Building contraption "..data.name)
+	self.build_ents = {}
+	for k = 1, #data do
+		local step = data[k]
+		if step.type == "spawn" then
+			local ent = ents.Create(step.class)
+		end
+	end
+	-- work in progress!
+end
+
 function ENT:Weld(ent1, ent2)
-	self.ai:RunAction("Weld", {
+	self.ai:RunAction("TwoEntTool", {
 		ent1 = ent1,
 		ent2 = ent2,
+		callback = function(e1, e2)
+			constraint.Weld(self.params.ent1, self.params.ent2, 0, 0, 0, true)
+		end
 	})
 end
 
-do local ACTION = AISYS:RegisterAction("Weld", FAIRY_ACTIONS)
+do local ACTION = AISYS:RegisterAction("TwoEntTool", FAIRY_ACTIONS)
 	function ACTION:OnStart()
 		self.ent:SelectWeapon("tool")
 		self.mover = self:RunAction("MoveTo", {--"MoveToVisibility", {
@@ -43,8 +58,10 @@ do local ACTION = AISYS:RegisterAction("Weld", FAIRY_ACTIONS)
 				self.stage = 2
 			elseif self.stage == 2 then
 				self.ent:ToolEffect()
-				constraint.Weld(self.params.ent1, self.params.ent2, 0, 0, 0, true)
-				return self.STATE_FINISHED, "Entities have been welded"
+				if self.params.callback then
+					self.params.callback(self.params.ent1, self.params.ent2)
+				end
+				return self.STATE_FINISHED, "Entities have been tooled"
 			end
 		else
 			self.sys:FinishAction(self.mover, "Recreating due to interuption")
@@ -104,32 +121,45 @@ end
 
 function ENT:Heal(ply, health, rate)
 	self.ai:RunAction("Heal", {
-		ply = ply, 
-		health = health, 
+		ply = ply,
+		health = health,
 		rate = rate
 	})
 end
 do local ACTION = AISYS:RegisterAction("Heal", FAIRY_ACTIONS)
 	function ACTION:OnStart()
-		self.number = 0
-		self.current_health = self.params.ply:Health()
-		self:RunAction("Follow", {
-			ply = self.params.ply, 
-			offset = Vector(0,0,50)
+		self.ent:SelectWeapom("none")
+		self.mover = self:RunAction("MoveTo", {
+			ent = self.params.ply, 
+			distance = self.params.distance or 10,
+			min_distance = self.params.min_distance or 0,
+			offset = Vector(0,0,65),
 		})
+		self.last_time = nil
 	end
 	
 	function ACTION:OnResume()
-		self.current_health = self.params.ply:Health()
+		self.last_time = nil
 	end
 	
 	function ACTION:OnUpdate()
-		if self.ent:GetPos():Distance(self.params.ply:GetPos()) < 10 then
-			self.number = self.number + self.params.rate
-			self.params.ply:SetHealth(self.current_health + self.number)
-			if self.params.ply:Health() >= self.params.health then
-				return self.STATE_FINISHED, "Sucessfully healed player"
+		if self.ent:GetPos():Distance(self.params.ply:GetPos()+Vector(0,0,65)) < (self.params.distance or 15) then
+			self.params.ply:SetHealth(math.min(
+					self.params.ply:Health()
+						+(CurTime()-(self.last_time or CurTime()))*self.rate,
+					self.params.health
+			))
+			if self.params.ply:Health() == self.params.health then
+				return self.STATE_FINISHED, "I healed the player"
 			end
+			self.last_time = CurTime()
+		else
+			self.mover = self:RunAction("MoveTo", {
+				ent = self.params.ply, 
+				distance = (self.params.distance or 15)-5,
+				min_distance = self.params.min_distance or 0,
+				offset = Vector(0,0,65),
+			})
 		end
 	end
 	
