@@ -6,6 +6,14 @@ resource.AddFile("sound/alan/float.wav")
 resource.AddFile("sound/alan/bonk.wav")
 resource.AddFile("models/python1320/wing.mdl")
 
+for i = 1, 9 do
+	resource.AddFile("sound/alan/nymph/NymphGiggle_0"..i..".mp3")
+end
+
+for i = 1, 4 do
+	resource.AddFile("sound/alan/nymph/NymphHit_0"..i..".mp3")
+end
+
 include("shared.lua")
 include("sv_hooks.lua")
 include("sv_weapons.lua")
@@ -18,9 +26,16 @@ local alan_color = CreateConVar("alan_color", "200 255 200", true, false)
 local alan_size = CreateConVar("alan_size", "1", true, false)
 
 function ENT:Initialize()
+	if #ents.FindByClass("gmod_alan") >= 2 then self:Remove() return end
 	self.dt.size = alan_size:GetFloat()
 	local color = string.Explode(" ", alan_color:GetString())
-	self:SetColor(color[1],color[2],color[3], 255)
+	if string.find(alan_color:GetString(), "random") then
+		local hsvcolor = HSVToColor(math.random(360), 0.3, 1)
+		PrintTable(hsvcolor)
+		timer.Simple(0.2, function() self:SetColor(hsvcolor.r,hsvcolor.g,hsvcolor.b,255) end)
+	else
+		self:SetColor(color[1],color[2],color[3], 255)
+	end
 	self:SetModel("models/dav0r/hoverball.mdl")
 	self:PhysicsInitBox(Vector()*-self.dt.size*5, Vector()*self.dt.size*5)
 	self:SetMoveType(MOVETYPE_VPHYSICS)
@@ -65,8 +80,8 @@ function ENT:SpawnFunction(ply, trace)
 end
 
 function ENT:PhysicsCollide(data, physicsobject)
-	if data.Speed > 50 and data.DeltaTime > 0.2  then
-		--self:Bonk(data.Speed / 100, true)
+	if data.Speed > 150 and data.DeltaTime > 0.2  then
+		self:EmitSound("alan/nymph/NymphHit_0"..math.random(4)..".mp3", 100, math.random(90, 110))
 	end
 end
 
@@ -97,14 +112,17 @@ end
 
 function ENT:PhysicsSimulate( physicsobject, deltatime )
 	self.smoothsphererandom = self.smoothsphererandom + ((self.sphereposition - self.smoothsphererandom)/100)
-	
 	physicsobject:Wake()
 	self.shadowcontrol.secondstoarrive = math.min(
 		self:GetPos():Distance(self.target_position or self:GetPos())/100+0.001,
 		0.5
 	)
-	self.shadowcontrol.pos = self.target_position or self:GetPos() -- self.smoothsphererandom)
-	self.shadowcontrol.angle = self.target_angle or self:GetVelocity():Angle()
+	if self.laughing then
+		self.shadowcontrol.pos = self.target_position + self.laughing
+	else
+		self.shadowcontrol.pos = self.target_position + self.smoothsphererandom or self:GetPos() 
+	end
+	self.shadowcontrol.angle = self.smoothsphererandom ~= Vector(0) and self:GetVelocity():Angle()  or self.target_angle
 	self.shadowcontrol.maxangular = 100000
 	self.shadowcontrol.maxangulardamp = 400
 	self.shadowcontrol.maxspeed = 1000000
@@ -128,7 +146,7 @@ function ENT:GetWeaponTrace()
 end
 
 function ENT:Think()
-	if self.curtime + self.randomspheretime <= CurTime() and self.following and self.userandommovement then
+	if self.curtime + self.randomspheretime <= CurTime() and self.userandommovement then
 		self.sphereposition = self:RandomSphere(self.following and self.following:BoundingRadius()*3)
 		self.randomspheretime = math.Rand(0,1)
 		self.curtime = CurTime()
@@ -149,6 +167,8 @@ function ENT:Think()
 		self.lastsize = size
 	end
 	self.ai:Update()
+	self:NextThink(CurTime())
+	return true
 end
 
 function ENT:SetRandomMovement(boolean)
@@ -170,10 +190,14 @@ function ENT:SetPickedup(bool)
 	end
 end
 
-function ENT:SetActiveEntity(entity)
-	self.active_entity = entity
-end
-
-function ENT:GetActiveEntity(entity)
-	return self.active_entity
+function ENT:Laugh()
+	self:EmitSound("alan/nymph/NymphGiggle_0"..math.random(9)..".mp3", 100, math.random(90,110))
+	local counter = 0
+	timer.Create("Alan Laugh "..self:EntIndex(), 0.1, 10, function()
+		counter = counter + 1
+		self.laughing = VectorRand()*100
+		if counter >= 10 then
+			self.laughing = nil
+		end
+	end)
 end
