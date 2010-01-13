@@ -131,7 +131,7 @@ function ENT:Heal(ply, health, rate)
 end
 do local ACTION = AISYS:RegisterAction("Heal", FAIRY_ACTIONS)
 	function ACTION:OnStart()
-		self.ent:SelectWeapom("none")
+		self.ent:SelectWeapon("none")
 		self.mover = self:RunAction("MoveTo", {
 			ent = self.params.ply, 
 			distance = self.params.distance or 10,
@@ -142,6 +142,8 @@ do local ACTION = AISYS:RegisterAction("Heal", FAIRY_ACTIONS)
 		--self.last_time = nil
 		self.counter = 0
 		self.starting_health = self.params.ply:Health()
+		self.sound = CreateSound(self.ent, "items/medcharge4.wav")
+		self.sound:PlayEx(0,0)
 	end
 	
 	function ACTION:OnResume()
@@ -150,7 +152,8 @@ do local ACTION = AISYS:RegisterAction("Heal", FAIRY_ACTIONS)
 	end
 	
 	function ACTION:OnUpdate()
-		self.counter = self.counter or 0 --for some reason it's nil
+		self.sound:ChangePitch(self.counter/self.params.health*255)
+		self.sound:ChangeVolume(self.counter/self.params.health)
 		self.starting_health = self.starting_health or self.params.ply:Health()
 		if self.ent:GetPos():Distance(self.params.ply:GetPos()+Vector(0,0,65)) < (self.params.distance or 15) then
 			self.params.ply:SetHealth(math.min(
@@ -175,6 +178,7 @@ do local ACTION = AISYS:RegisterAction("Heal", FAIRY_ACTIONS)
 	end
 	
 	function ACTION:OnFinish()
+		self.sound:Stop()
 		self.sys:OnEvent("TargetHealed", {ply = self.params.ply})
 	end
 end

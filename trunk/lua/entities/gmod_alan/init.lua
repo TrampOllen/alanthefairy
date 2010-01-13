@@ -47,6 +47,8 @@ function ENT:Initialize()
 	self.shadowcontrol = {}
 	self.sphereposition = Vector(0)
 	self.smoothsphererandom = Vector(0)
+	self.target_position = Vector(0)
+	self.target_angle = Angle(0)
 	
 	self.curtime = CurTime()
 	self.randomspheretime = math.Rand(1,3)
