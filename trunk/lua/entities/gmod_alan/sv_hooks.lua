@@ -4,7 +4,7 @@ function ENT:InitializeHooks(ai)
 		if entity == self.Entity then
 			ai:OnEvent("TakeDamage", {entity = entity, inflictor = inflictor, attacker = attacker, amount = amount, damageinfo = damageinfo})
 		end
-	--	ai:OnEvent("EntityTakeDamage", {entity = entity, inflictor = inflictor, attacker = attacker, amount = amount, damageinfo = damageinfo})
+		ai:OnEvent("EntityTakeDamage", {entity = entity, inflictor = inflictor, attacker = attacker, amount = amount, damageinfo = damageinfo})
 	end)
 	
 	hook.Add("PhysgunPickup", "Alan"..self:EntIndex(), function(ply, entity)
@@ -54,6 +54,7 @@ function ENT:InitializeHooks(ai)
 		end
 		
 		if string.find(string.lower(text), name) then
+			self:ShouldLaugh(text, true)
 			self:Respond(ply, text)
 			if ply:GetPos():Distance(self:GetPos()) > 500 then return end
 			self:Follow(ply)
@@ -62,7 +63,28 @@ function ENT:InitializeHooks(ai)
 		
 		if ply:GetAimVector():DotProduct( ( self:GetPos() - ply:GetPos() ):Normalize() ) > 0.8 then
 			self:Respond(ply, text)
+			self:ShouldLaugh(text, true)
 		end
+	end)
+			
+	hook.Add("AlanChat", "Actions based on chat", function(entity, response, id)
+		if string.find(response, "How do you like my new look?") then
+			local color = HSVToColor(math.random(360), 0.3, 1)
+			entity:SetColor(color.r,color.g,color.b,255)
+			entity.dt.size = math.Rand(0.2, 1)
+		end
+		if CS then
+			CS.PlayerSay(alan, response)
+		end
+	end)
+	
+	hook.Add("PlayerInitialSpawn", "Alan"..self:EntIndex(), function(spawned_player)
+		hook.Add("KeyPress", "Alan"..self:EntIndex()..spawned_player:EntIndex(), function(ply, key)
+			if ValidEntity(self) and ValidEntity(spawned_player) and ply == spawned_player then
+				self:Greet(spawned_player)
+				hook.Remove("KeyPress", "Alan"..self:EntIndex()..spawned_player:EntIndex())
+			end
+		end)
 	end)
 	
 end
@@ -81,3 +103,11 @@ function meta:GodDisable()
 	self.alan_god = false
 	GodDisable( self )
 end
+
+hook.Add("InitPostEntity", "Spawn Alan", function()
+	local entity = ents.Create("gmod_alan")
+	entity:SetPos(Vector(0,0,100))
+	entity:Spawn()
+	entity:Activate()
+	entity:PhysWake()
+end)

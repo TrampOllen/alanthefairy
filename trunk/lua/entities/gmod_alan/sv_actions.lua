@@ -193,7 +193,6 @@ do local ACTION = AISYS:RegisterAction("Follow", FAIRY_ACTIONS)
 	function ACTION:OnStart()
 		self.offset = self.params.offset or Vector(0)
 		self.distance = self.params.distance or 100
-		self.ent:SetRandomMovement(true)
 	end
 	
 	function ACTION:OnResume()
@@ -201,6 +200,7 @@ do local ACTION = AISYS:RegisterAction("Follow", FAIRY_ACTIONS)
 	end
 	
 	function ACTION:OnUpdate()
+		self.ent:SetRandomMovement(true)
 		if not ValidEntity(self.params.ent) then return self.STATE_INVALID, "The one I'm following is not valid" end
 		local dir = (self.params.ent:GetPos() + self.offset - self.ent:GetPos())
 		self.ent.target_position = self.params.ent:GetPos()
@@ -239,7 +239,7 @@ do local ACTION = AISYS:RegisterAction("MoveTo", FAIRY_ACTIONS)
 			self.ent.target_angle = (dir + (self.params.aim_offset or Vector())):Angle()
 		end
 		self.ent.target_position = self.params.ent:GetPos()
-			+self.params.offset
+			+self.offset
 				-dir:GetNormalized()*(math.min(
 					self.distance,
 					math.max(
@@ -247,7 +247,7 @@ do local ACTION = AISYS:RegisterAction("MoveTo", FAIRY_ACTIONS)
 						self.params.min_distance or 0
 					)
 				)*0.8)
-		if self.ent:GetPos():Distance(self.params.ent:GetPos()+self.params.offset) < self.distance and (
+		if self.ent:GetPos():Distance(self.params.ent:GetPos()+self.offset) < self.distance and (
 			not self.params.aim
 			or self.ent:GetAngles():Forward():Dot(self.ent.target_angle:Forward()) > self.params.accuracy
 		  ) and (
@@ -307,7 +307,7 @@ do local ACTION = AISYS:RegisterAction("Kill", FAIRY_ACTIONS)
 			self.ent:SelectWeapon(self.params.weapon)
 			self.mover = self:RunAction("MoveTo", {
 				ent = self.params.ply, 
-				distance = self.ent.activeweapon.data.distance or 100, 
+				distance = self.ent.activeweapon.data.distance or 1000, 
 				min_distance = self.ent.activeweapon.data.min_distance or 0,
 				offset = Vector(0,0,50),
 				aim = true,
@@ -320,13 +320,12 @@ do local ACTION = AISYS:RegisterAction("Kill", FAIRY_ACTIONS)
 		if self.finished then
 			return self.STATE_FINISHED, "Shot the target until health reached"
 		end
-		print(":(", self.ent:GetWeaponTrace())
 		if self.ent:GetWeaponTrace().Entity == self.params.ply then
 			self.ent:FireWeapon()
 		else
 			self.mover = self:RunAction("MoveTo", {
 				ent = self.params.ply,
-				distance = self.activeweapon and self.ent.activeweapon.data.distance or 100,
+				distance = self.activeweapon and self.ent.activeweapon.data.distance or 1000,
 				offset = Vector(0,0,50),
 				aim = true,
 			})
@@ -340,7 +339,7 @@ do local ACTION = AISYS:RegisterAction("Kill", FAIRY_ACTIONS)
 				return true
 			end
 		elseif event == "EntityTakeDamage" and data.entity == self.params.ply and data.attacker == self.ent then
-			if self.params.ply:Health() <= self.params.health then
+			if self.params.ply:Health() <= self.params.health or self.params.health == 0 and not self.params.ply:Alive() then
 				self.finished = true
 			end
 			return true
@@ -377,7 +376,7 @@ do local ACTION = AISYS:RegisterAction("CoreFairyBehaviour", FAIRY_ACTIONS)
 	end
 	function ACTION:OnEvent(event_name, params, handled)
 		if handled then return end
-		if event_name == "TakeDamage" then
+		if event_name == "TakeDamage" and params.attacker ~= self.ent then
 			self:RunAction("Kill", {
 				ply = params.attacker,
 				health = 0,
@@ -390,8 +389,26 @@ do local ACTION = AISYS:RegisterAction("CoreFairyBehaviour", FAIRY_ACTIONS)
 	end
 end
 
+function ENT:Greet(ply)
+	self.ai:RunAction("Greet", {
+		ply = ply,
+	})
+end
 
-
+do local ACTION = AISYS:RegisterAction("Greet", FAIRY_ACTIONS)
+	function ACTION:OnStart()
+		self:RunAction("MoveTo", {--"MoveToVisibility", {
+			ent = self.params.ply,
+			distance = 100,
+		})
+	end
+	function ACTION:OnUpdate()
+		if self.ent:GetPos():Distance(self.params.ply:GetPos()) <= 500 then
+			self.ent:Respond(self.params.ply, "Hey")
+			return self.STATE_FINISHED, "I greet the player"
+		end
+	end
+end
 
 
 

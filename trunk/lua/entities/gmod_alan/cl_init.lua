@@ -33,6 +33,11 @@ function ENT:Initialize()
 	self.bleftwing = ClientsideModel(model)
 	self.brightwing = ClientsideModel(model)
 	
+	self.leftwing:SetMaterial("alan/wing")
+	self.rightwing:SetMaterial("alan/wing")
+	self.bleftwing:SetMaterial("alan/wing")
+	self.brightwing:SetMaterial("alan/wing")
+	
 	self:SetRenderBoundsWS(self:GetPos()-self:GetRight()*500, self:GetPos()+self:GetRight()*500)
 	
 	usermessage.Hook( "Alan:ToPlayer", function( um )
