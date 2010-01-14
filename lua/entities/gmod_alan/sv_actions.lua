@@ -5,14 +5,21 @@ FAIRY_ACTIONS = {}
 function ENT:Build(data)
 	print("Building contraption "..data.name)
 	self.build_ents = {}
+	self.build_action_queue = {}
 	for k = 1, #data do
 		local step = data[k]
 		if step.type == "spawn" then
-			local bounds_min, bounds_max = modelinfo.GetBounds(
-			self.ai:RunAction("MoveTo", {--"MoveToVisbility", {
-				ent = Entity(0),
-				min_distance = 50,
-				distance = 
+			util.PrecacheModel(step.model)
+			local model_id = modelinfo.GetIndex(step.model)
+			if model_id and model_id ~= 0 then
+				local bounds_min, bounds_max = modelinfo.GetBounds(model_id)
+				local distance = math.max(bounds_min:Length(), bounds_max:Length())
+				table.insert(self.build_action_queue, self.ai:RunAction("MoveTo", {--"MoveToVisbility", {
+					ent = Entity(0),
+					min_distance = distance,
+					distance = distance+20,
+				))
+			end
 		end
 	end
 	-- work in progress!
