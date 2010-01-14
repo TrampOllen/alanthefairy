@@ -10,7 +10,7 @@ AISYS = {
 local dbg = AISYS.debug -- I'm lazy
 
 local aient_meta = {
-	RunAction = function(self, action_name, params, reason, parent)
+	RunAction = function(self, action_name, params, reason, finish_callback, parent)
 		if self.current_action then
 			dbg(self, "(#%s) Suspending action %s", #self.action_chain, self.current_action.__id)
 			if self.current_action.OnSuspend then
@@ -25,6 +25,7 @@ local aient_meta = {
 			params = params,
 			sys = self,
 			ent = self.ent,
+			finish_callback = finish_callback
 		}, self.ent.ai.actions[action_name] or AISYS.Actions[action_name])
 		table.insert(self.action_chain, action)
 		dbg(self, "(#%s) Starting action %s: %q", #self.action_chain, action_name, tostring(reason))
@@ -76,6 +77,9 @@ local aient_meta = {
 		local result
 		if action.OnFinish then
 			result = action:OnFinish()
+			if action.finish_callback then
+				action:finish_callback(result, reason)
+			end
 		end
 		if action == self.current_action then
 			table.remove(self.action_chain, #self.action_chain)
@@ -124,8 +128,8 @@ local action_meta = {
 			end
 		end
 	end,
-	RunAction = function(self, action_name, params, reason)
-		return self.sys:RunAction(action_name, params, reason, self)
+	RunAction = function(self, action_name, params, reason, finish_callback)
+		return self.sys:RunAction(action_name, params, reason, finish_callback, self)
 	end,
 }
 action_meta.__index = action_meta
