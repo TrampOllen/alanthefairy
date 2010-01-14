@@ -1,4 +1,5 @@
 require("core_ai")
+require("modelinfo")
 FAIRY_ACTIONS = {}
 
 function ENT:Build(data)
@@ -7,7 +8,11 @@ function ENT:Build(data)
 	for k = 1, #data do
 		local step = data[k]
 		if step.type == "spawn" then
-			local ent = ents.Create(step.class)
+			local bounds_min, bounds_max = modelinfo.GetBounds(
+			self.ai:RunAction("MoveTo", {--"MoveToVisbility", {
+				ent = Entity(0),
+				min_distance = 50,
+				distance = 
 		end
 	end
 	-- work in progress!
