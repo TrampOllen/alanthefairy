@@ -18,7 +18,7 @@ function ENT:Build(data)
 					ent = Entity(0),
 					min_distance = distance,
 					distance = distance+20,
-				))
+				}))
 			end
 		end
 	end
