@@ -6,6 +6,10 @@ resource.AddFile("sound/alan/float.wav")
 resource.AddFile("sound/alan/bonk.wav")
 resource.AddFile("models/python1320/wing.mdl")
 
+resource.AddFile("materials/alan/wing.vmt")
+resource.AddFile("materials/alan/wing.vtf")
+resource.AddFile("materials/alan/wing_normal.vtf")
+
 for i = 1, 9 do
 	resource.AddFile("sound/alan/nymph/NymphGiggle_0"..i..".mp3")
 end
@@ -148,7 +152,7 @@ function ENT:GetWeaponTrace()
 end
 
 function ENT:Think()
-	if self.curtime + self.randomspheretime <= CurTime() and self.userandommovement then
+	if self.curtime + self.randomspheretime <= CurTime() and self.userandommovement and ValidEntity(self.following) then
 		self.sphereposition = self:RandomSphere(self.following and self.following:BoundingRadius()*3)
 		self.randomspheretime = math.Rand(0,1)
 		self.curtime = CurTime()
@@ -169,6 +173,7 @@ function ENT:Think()
 		self.lastsize = size
 	end
 	self.ai:Update()
+	self:Extinguish()
 	self:NextThink(CurTime())
 	return true
 end
@@ -202,4 +207,23 @@ function ENT:Laugh()
 			self.laughing = nil
 		end
 	end)
+end
+
+function ENT:ShouldLaugh(response, laugh)
+	local laughing_words = {
+		"lol",
+		"rofl",
+		"haha",
+	}	
+	for key, word in pairs(laughing_words) do
+		if string.find(response, word) then
+			if laugh then
+				self:Laugh()
+			end
+		return true	end
+	end
+return false end
+
+function ENT:Use(activator)
+	self:Heal(activator, 100, 0.3)
 end
