@@ -6,6 +6,8 @@ function ENT:Build(data)
 	print("Building contraption "..data.name)
 	self.build_ents = {}
 	self.build_action_queue = {}
+	self.build_origin = Vector(0, 0, 0)
+	-- We need to use the pathfinding to find a blank space big enough to build in
 	for k = 1, #data do
 		local step = data[k]
 		if step.type == "spawn" then
@@ -17,8 +19,34 @@ function ENT:Build(data)
 				table.insert(self.build_action_queue, self.ai:RunAction("MoveTo", {--"MoveToVisbility", {
 					ent = Entity(0),
 					min_distance = distance,
-					distance = distance+20,
+					distance = distance+50,
+					aim = true,
+					offset = self.build_origin+step.offset,
+					aim_offset = self.build_origin+step.offset,
+					accuracy = 1,
+					finish_callback = function(result, reason)
+						local ent = ents.Create(step.class)
+						if step.model then
+							ent:SetModel(step.model)
+						end
+						if step.skin then
+							ent:SetSkin(step.skin)
+						end
+						-- implement support for other properties of the entity
+						ent:SetPos(self.build_origin+step.offset)
+					end,
 				}))
+			else
+				for k,v in ipairs(self.build_action_queue) do
+					self.ai:FinishAction(v, "Invalid model "..tostring(step.model), true)
+				end
+				-- find something else to do
+			end
+		elseif step.type == "indirect_constraint" then
+			if step.constraint == "weld" then
+				--Can't use self:Weld cause we need a custom start_callback
+				self.ai:RunAction("TwoEntTool", {
+				})
 			end
 		end
 	end
@@ -48,7 +76,6 @@ do local ACTION = AISYS:RegisterAction("TwoEntTool", FAIRY_ACTIONS)
 			aim_offset = Vector(0, 0, -65)
 		})
 		self.stage = 1
-		self.ent:SetRandomMovement(false)
 	end
 	function ACTION:OnResume(from_action, result)
 		if not self.params.ent1:IsValid() then
@@ -111,6 +138,12 @@ do local ACTION = AISYS:RegisterAction("Bonk", FAIRY_ACTIONS)
 		self.ent:GetPhysicsObject():EnableGravity(true)
 		self.end_time = CurTime()+self.params.duration
 	end
+	function ACTION:OnResume()
+		self.ent:StopMotionController()
+		self.ent.dt.bonked = true
+		self.ent:GetPhysicsObject():EnableGravity(true)
+		self.end_time = CurTime()+self.params.duration
+	end
 	function ACTION:OnSuspend(for_action, params)
 		if for_action == "Bonk" then -- let's merge the two
 			if not params.silent then
@@ -120,6 +153,10 @@ do local ACTION = AISYS:RegisterAction("Bonk", FAIRY_ACTIONS)
 			self.end_time = self.end_time+params.duration
 			return true, "I'm merging the two bonk times"
 		end
+		self.ent.dt.bonked = false
+		self.ent:GetPhysicsObject():EnableGravity(false)
+		self.ent:StartMotionController()
+		self.ent:PhysWake()
 	end
 	function ACTION:OnUpdate()
 		if CurTime() > self.end_time then
@@ -150,7 +187,6 @@ do local ACTION = AISYS:RegisterAction("Heal", FAIRY_ACTIONS)
 			min_distance = self.params.min_distance or 0,
 			offset = Vector(0,0,65),
 		})
-		self.ent:SetRandomMovement(false)
 		--self.last_time = nil
 		self.counter = 0
 		self.starting_health = self.params.ply:Health()
@@ -180,6 +216,7 @@ do local ACTION = AISYS:RegisterAction("Heal", FAIRY_ACTIONS)
 			--self.last_time = CurTime()
 			self.counter = self.counter + self.params.rate
 		else
+			self.sys:FinishAction(self.mover, "Recreating due to interuption")
 			self.mover = self:RunAction("MoveTo", {
 				ent = self.params.ply, 
 				distance = (self.params.distance or 15)-5,
@@ -205,14 +242,15 @@ do local ACTION = AISYS:RegisterAction("Follow", FAIRY_ACTIONS)
 	function ACTION:OnStart()
 		self.offset = self.params.offset or Vector(0)
 		self.distance = self.params.distance or 100
+		self.ent:SetRandomMovement(true)
 	end
 	
 	function ACTION:OnResume()
+		self.ent:SetRandomMovement(true)
 		return self.STATE_INVALID, "I'm not sure what to do"
 	end
 	
 	function ACTION:OnUpdate()
-		self.ent:SetRandomMovement(true)
 		if not ValidEntity(self.params.ent) then return self.STATE_INVALID, "The one I'm following is not valid" end
 		local dir = (self.params.ent:GetPos() + self.offset - self.ent:GetPos())
 		self.ent.target_position = self.params.ent:GetPos()
@@ -237,10 +275,11 @@ do local ACTION = AISYS:RegisterAction("MoveTo", FAIRY_ACTIONS)
 			self.params.accuracy = self.params.accuracy or 0.8
 		end
 		self.success = false
-		self.ent:SetRandomMovement(false)
+		self.ent:SetRandomMovement(self.params.random_movement)
 	end
 	
 	function ACTION:OnResume()
+		self.ent:SetRandomMovement(self.params.random_movement)
 		return self.STATE_INVALID, "I'm not sure what to do"
 	end
 	
@@ -317,6 +356,7 @@ do local ACTION = AISYS:RegisterAction("Kill", FAIRY_ACTIONS)
 			return self.STATE_INVALID, "My target is already hurt"
 		else
 			self.ent:SelectWeapon(self.params.weapon)
+			self.sys:FinishAction(self.mover, "Recreating due to interuption")
 			self.mover = self:RunAction("MoveTo", {
 				ent = self.params.ply, 
 				distance = self.ent.activeweapon.data.distance or 1000, 
@@ -335,6 +375,7 @@ do local ACTION = AISYS:RegisterAction("Kill", FAIRY_ACTIONS)
 		if self.ent:GetWeaponTrace().Entity == self.params.ply then
 			self.ent:FireWeapon()
 		else
+			self.sys:FinishAction(self.mover, "Recreating due to interuption")
 			self.mover = self:RunAction("MoveTo", {
 				ent = self.params.ply,
 				distance = self.activeweapon and self.ent.activeweapon.data.distance or 1000,
@@ -361,7 +402,6 @@ do local ACTION = AISYS:RegisterAction("Kill", FAIRY_ACTIONS)
 	function ACTION:OnFinish()
 		self.ent:SelectWeapon("none")
 		self.sys:OnEvent("TargetKilled", {ply = self.params.ply})
-		self.ent:SetRandomMovement(true)
 	end
 end
 
@@ -409,16 +449,31 @@ end
 
 do local ACTION = AISYS:RegisterAction("Greet", FAIRY_ACTIONS)
 	function ACTION:OnStart()
-		self:RunAction("MoveTo", {--"MoveToVisibility", {
+		self.mover = self:RunAction("MoveTo", {--"MoveToVisibility", {
 			ent = self.params.ply,
 			distance = 100,
+			min_distance = 50,
+			offset = Vector(0, 0, 65),
+			aim_offset = Vector(0, 0, 65),
+			aim = true,
+			accuracy = 0.8
 		})
 	end
-	function ACTION:OnUpdate()
-		if self.ent:GetPos():Distance(self.params.ply:GetPos()) <= 500 then
+	function ACTION:OnUpdate(action)
+		if action == self.mover and self.ent:GetPos():Distance(self.params.ply:GetPos()) <= 120 then
 			self.ent:Respond(self.params.ply, "Hey")
-			return self.STATE_FINISHED, "I greet the player"
+			return self.STATE_FINISHED, "I greeted the player"
 		end
+		self.sys:FinishAction(self.mover, "Recreating due to interuption")
+		self.mover = self:RunAction("MoveTo", {--"MoveToVisibility", {
+			ent = self.params.ply,
+			distance = 100,
+			min_distance = 50,
+			offset = Vector(0, 0, 65),
+			aim_offset = Vector(0, 0, 65),
+			aim = true,
+			accuracy = 0.8
+		})
 	end
 end
 

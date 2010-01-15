@@ -179,12 +179,8 @@ function ENT:Think()
 end
 
 function ENT:SetRandomMovement(boolean)
-	if boolean then
-		self.userandommovement = true
-	else
-		self.userandommovement = false
-		self.sphereposition = Vector(0)
-	end
+	self.userandommovement = boolean
+	self.sphereposition = boolean and Vector(0) or self.sphereposition
 end
 
 function ENT:SetPickedup(bool)
