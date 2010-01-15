@@ -5,36 +5,56 @@ AISYS = {
 			print((it.current_action and it.current_action.__id.." " or "")..string.format(msg, ...))
 		end
 	end,
+	error = function(msg, ...)
+		ErrorNoHalt(string.format(msg, ...))
+	end
 	Actions = {}
 }
 local dbg = AISYS.debug -- I'm lazy
+local err = SISYS.error
 
 local aient_meta = {
 	RunAction = function(self, action_name, params, reason, finish_callback, parent)
 		if self.current_action then
 			dbg(self, "(#%s) Suspending action %s", #self.action_chain, self.current_action.__id)
 			if self.current_action.OnSuspend then
-				local result, refuse_reason = self.current_action:OnSuspend(action_name, params)
-				if result then
-					dbg(self, "Action %s refuses to let action %s start: %q", self.current_action.__id, action_name, refuse_reason)
-					return
+				local worked, result, refuse_reason = pcall(self.current_action.OnSuspend, self.current_action.OnSuspend, action_name, params)
+				if worked then
+					if result then
+						dbg(self, "Action %s refuses to let action %s start: %q", self.current_action.__id, action_name, refuse_reason)
+						return
+					end
+				else
+					err("Action %s:OnSuspend failed: %q", self.current_action.__id, result)
 				end
 			end
 		end
+		params = params or {}
+		params.finish_callback = finish_callback
 		local action = setmetatable({
 			params = params,
 			sys = self,
 			ent = self.ent,
-			finish_callback = finish_callback
 		}, self.ent.ai.actions[action_name] or AISYS.Actions[action_name])
 		table.insert(self.action_chain, action)
 		dbg(self, "(#%s) Starting action %s: %q", #self.action_chain, action_name, tostring(reason))
-		local last, result, reason = self.current_action
+		local last, worked, result, reason = self.current_action
 		self.current_action = action
 		if action.OnStart then
-			result, reason = action:OnStart()
+			woked, result, reason = pcall(action.OnStart, action)
+			if not worked then
+				err("Action %s:OnStart failed (not starting): %q", action.__id, result)
+				self.current_action = last
+				return
+			end
 		end
 		if not result then
+			if params.start_callback then
+				local worked, res = pcall(params.start_callback, action)
+				if not worked then
+					err("Action %s.params.start_callback failed: %q", action.__id, res)
+				end
+			end
 			return action
 		end
 		self.current_action = last
@@ -45,9 +65,16 @@ local aient_meta = {
 			local event, handled = self.queued_events[i], false
 			for k = #self.action_chain, 1, -1 do
 				local action = self.action_chain[k]
-				if action and action.OnEvent and action:OnEvent(event.name, event.params, handled) then
-					dbg(self, "Event %s handled by action %s", event.name, action.__id)
-					handled = true
+				if action and action.OnEvent then
+					local worked, res = action:OnEvent(event.name, event.params, handled)
+					if worked then
+						if res then
+							dbg(self, "Event %s handled by action %s", event.name, action.__id)
+							handled = true
+						end
+					else
+						err("Action %s:OnEvent failed: %q", action.__id, res)
+					end
 				end
 			end
 		end
@@ -73,12 +100,13 @@ local aient_meta = {
 		end
 	end,
 	FinishAction = function(self, action, reason, invalid, by)
+		if not action then return end
 		dbg(self, "(#%s) Action %s finished from %s%s: %q", #self.action_chain, action.__id, tostring(by), invalid and " (says invalid)" or "", tostring(reason))
 		local result
 		if action.OnFinish then
 			result = action:OnFinish()
-			if action.finish_callback then
-				action:finish_callback(result, reason)
+			if action.params.finish_callback then
+				action.param.finish_callback(action, result, reason)
 			end
 		end
 		if action == self.current_action then
