@@ -3,128 +3,166 @@ require("modelinfo")
 FAIRY_ACTIONS = {}
 
 function ENT:Build(data)
-	print("Building contraption "..data.name)
+	data.name = type(data.name) == "string" and data.name or "Unnamed Contraption"
+	MsgAll("Alan: Building contraption "..data.name.." by "..tostring(data.author))
 	self.build_ents = {}
 	self.build_action_queue = {}
 	self.build_origin = Vector(0, 0, 0)
+	self.contraption = data
 	-- We need to use the pathfinding to find a blank space big enough to build in
 	for k = 1, #data do
 		local step = data[k]
 		if step.type == "spawn" then
-			util.PrecacheModel(step.model)
-			local model_id = modelinfo.GetIndex(step.model)
-			if model_id and model_id ~= 0 then
-				local bounds_min, bounds_max = modelinfo.GetBounds(model_id)
-				local distance = math.max(bounds_min:Length(), bounds_max:Length())
-				table.insert(self.build_action_queue, self.ai:RunAction("MoveTo", {--"MoveToVisbility", {
-					ent = Entity(0),
-					min_distance = distance,
-					distance = distance+50,
-					aim = true,
-					offset = self.build_origin+step.offset,
-					aim_offset = self.build_origin+step.offset,
-					accuracy = 1,
-					finish_callback = function(result, reason)
-						local ent = ents.Create(step.class)
-						if step.model then
-							ent:SetModel(step.model)
-						end
-						if step.skin then
-							ent:SetSkin(step.skin)
-						end
-						-- implement support for other properties of the entity
-						ent:SetPos(self.build_origin+step.offset)
-					end,
-				}))
-			else
-				for k,v in ipairs(self.build_action_queue) do
-					self.ai:FinishAction(v, "Invalid model "..tostring(step.model), true)
+			if step.model then
+				step.model = tostring(step.model)
+				util.PrecacheModel(step.model)
+				local model_id = modelinfo.GetIndex(step.model)
+				if not model_id or model_id == 0 then					
+					self:StopBuild("Invalid model %q", tostring(step.model))
+					return
 				end
-				-- find something else to do
 			end
+			local bounds_min, bounds_max = modelinfo.GetBounds(model_id)
+			local distance = math.max(bounds_min:Length(), bounds_max:Length())
+			self.build_action_queue[#self.build_action_queue+1] = self.ai:RunAction("MoveTo", {--"MoveToVisbility", {
+				ent = Entity(0),
+				min_distance = distance,
+				distance = distance+50,
+				aim = true,
+				offset = self.build_origin+(step.offset or Vector()),
+				aim_offset = self.build_origin+(step.offset or Vector()),
+				accuracy = 1,
+				finish_callback = function(action, result, reason)
+					step.class = step.class or "prop_physics"
+					local ent = ents.Create(step.class or "prop_physics")
+					if step.model or step.class == "prop_physics" then
+						ent:SetModel(step.model or "models/Combine_Helicopter/helicopter_bomb01.mdl")
+					end
+					if step.skin then
+						ent:SetSkin(step.skin)
+					end
+					-- implement support for other properties of the entity
+					ent:SetPos(self.build_origin+(step.offset or Vector()))
+				end,
+			})
 		elseif step.type == "indirect_constraint" then
 			if step.constraint == "weld" then
-				--Can't use self:Weld cause we need a custom start_callback
-				self.ai:RunAction("TwoEntTool", {
+				-- self:Weld doesn't meet our needs
+				local t_length, entity1, entity2 = #self.build_action_queue
+				self.build_action_queue[t_length+2] = self.ai:RunAction("ToolEnt", {
+					pre_start_callback = function(action)
+						action.params.ent = entity1
+					end,
+					finish_callback = function(action, result, reason)
+						if result then
+							constraint.Weld(entity1, entity2, 0, 0, 0, true)
+							return
+						end
+						
+					end,
+				})
+				self.build_action_queue[t_length+1] = self.ai:RunAction("ToolEnt", {
+					pre_start_callback = function(action)
+						if not (step.ent1 and self.build_ents[step.ent1]) then
+							self:StopBuild("Invalid ent1 ID %q of step #%s", step.ent1, k)
+							return
+						end
+						if not (step.ent1 and self.build_ents[step.ent1]) then
+							self:StopBuild("Invalid ent1 ID %q of step #%s", step.ent2, k)
+							return
+						end
+						entity1, entity2 = self.build_ents[step.ent1], self.build_ents[step.ent2]
+						action.params.ent = entity2
+					end,
 				})
 			end
 		end
 	end
 	-- work in progress!
 end
+function ENT:StopBuild(msg, ...)
+	local msg = string.format(msg or "", ...)
+	MsgAll("Alan: Stopping to build contraption "..self.contraption.name..": "..msg)
+	for k = #self.build_action_queue, 1, -1 do
+		self.ai:FinishAction(self.build_action_queue[k], msg, true)
+	end
+	for k,v in pairs(self.build_ents) do
+		v:Remove()
+	end
+	self.contraption = {}
+end
 
 function ENT:Weld(ent1, ent2)
-	self.ai:RunAction("TwoEntTool", {
-		ent1 = ent1,
-		ent2 = ent2,
-		callback = function(e1, e2)
-			constraint.Weld(e1, e2, 0, 0, 0, true)
-		end
+	--self.ai:RunAction("TwoEntTool", {
+	--	ent1 = ent1,
+	--	ent2 = ent2,
+	--	callback = function(e1, e2)
+	--		constraint.Weld(e1, e2, 0, 0, 0, true)
+	--	end
+	--})
+	self.ai:RunAction("ToolEnt", {
+		ent = ent2,
+		finish_callback = function(action, result, reason)
+			constraint.Weld(ent1, ent2, 0, 0, 0, true)
+		end,
+	})
+	self.ai:RunAction("ToolEnt", {
+		ent = ent1,
 	})
 end
 
-do local ACTION = AISYS:RegisterAction("TwoEntTool", FAIRY_ACTIONS)
+do local ACTION = AISYS:RegisterAction("ToolEnt", FAIRY_ACTIONS)
 	function ACTION:OnStart()
 		self.ent:SelectWeapon("tool")
+	end
+	function ACTION:OnUpdate()
 		self.mover = self:RunAction("MoveTo", {--"MoveToVisibility", {
-			ent = self.params.ent1,
-			min_distance = 50,
-			distance = 150,
+			ent = self.params.ent,
+			min_distance = self.params.min_distance or 50,
+			distance = self.params.distance or 150,
 			aim = true,
 			aim_hit = true,
-			offset = Vector(0, 0, 65),
-			aim_offset = Vector(0, 0, -65)
+			offset = self.params.offset or Vector(0, 0, 65),
+			aim_offset = self.params.aim_offset or Vector(0, 0, -65)
 		})
-		self.stage = 1
 	end
 	function ACTION:OnResume(from_action, result)
-		if not self.params.ent1:IsValid() then
-			return self.STATE_INVALID, "Entity 1 is no longer valid"
+		if not self.params.ent:IsValid() then
+			return self.STATE_INVALID, "Entity is no longer valid"
 		end
-		if not self.params.ent2:IsValid() then
-			return self.STATE_INVALID, "Entity 2 is no longer valid"
-		end
-		if from_action == self.mover and result then
-			if self.stage == 1 then
+		if from_action == self.mover then
+			if result then
 				self.ent:ToolEffect()
-				self.mover = self:RunAction("MoveTo", {--"MoveToVisibility", {
-					ent = self.params.ent2,
-					min_distance = 50,
-					distance = 100,
-					aim = true,
-					aim_hit = true,
-					offset = Vector(0),
-				})
-				self.stage = 2
-			elseif self.stage == 2 then
-				self.ent:ToolEffect()
-				if self.params.callback then
-					self.params.callback(self.params.ent1, self.params.ent2)
-				end
-				return self.STATE_FINISHED, "Entities have been tooled"
+				--if self.params.callback then -- No longer need this. Just use finish_callback
+				--	self.params.callback(self.params.ent)
+				--end
+				return self.STATE_FINISHED, "Entity has been tooled"
 			end
+			
 		else
 			self.sys:FinishAction(self.mover, "Recreating due to interuption")
 			self.mover = self:RunAction("MoveTo", {--"MoveToVisibility", {
-				ent = self.stage == 1 and self.params.ent1 or self.params.ent2,
-				min_distance = 50,
-				distance = 100,
+				ent = self.params.ent,
+				min_distance = self.params.min_distance or 50,
+				distance = self.params.distance or 150,
 				aim = true,
 				aim_hit = true,
-				offset = Vector(0),
+				offset = self.params.offset or Vector(0, 0, 65),
+				aim_offset = self.params.aim_offset or Vector(0, 0, -65)
 			})
 			self.ent:SelectWeapon("tool")
 		end
 	end
 	function ACTION:OnFinish()
 		self.ent:SelectWeapon("none")
+		return true
 	end
 end
 
 function ENT:Bonk(time, playsound)
 	self.ai:RunAction("Bonk", {
 		duration = time,
-		silent = not playersound,
+		silent = not playsound,
 	})
 end
 do local ACTION = AISYS:RegisterAction("Bonk", FAIRY_ACTIONS)
@@ -405,6 +443,41 @@ do local ACTION = AISYS:RegisterAction("Kill", FAIRY_ACTIONS)
 	end
 end
 
+function ENT:Greet(ply)
+	self.ai:RunAction("Greet", {
+		ply = ply,
+	})
+end
+do local ACTION = AISYS:RegisterAction("Greet", FAIRY_ACTIONS)
+	function ACTION:OnStart()
+		self.mover = self:RunAction("MoveTo", {--"MoveToVisibility", {
+			ent = self.params.ply,
+			distance = 100,
+			min_distance = 50,
+			offset = Vector(0, 0, 65),
+			aim_offset = Vector(0, 0, 65),
+			aim = true,
+			accuracy = 0.8
+		})
+	end
+	function ACTION:OnUpdate(action)
+		if action == self.mover and self.ent:GetPos():Distance(self.params.ply:GetPos()) <= 120 then
+			self.ent:Respond(self.params.ply, "Hey")
+			return self.STATE_FINISHED, "I greeted the player"
+		end
+		self.sys:FinishAction(self.mover, "Recreating due to interuption")
+		self.mover = self:RunAction("MoveTo", {--"MoveToVisibility", {
+			ent = self.params.ply,
+			distance = 100,
+			min_distance = 50,
+			offset = Vector(0, 0, 65),
+			aim_offset = Vector(0, 0, 65),
+			aim = true,
+			accuracy = 0.8
+		})
+	end
+end
+
 do local ACTION = AISYS:RegisterAction("CoreFairyBehaviour", FAIRY_ACTIONS)
 	function ACTION:OnUpdate()
 		-- this is temporary. We'll make it build or whatever later on
@@ -440,42 +513,3 @@ do local ACTION = AISYS:RegisterAction("CoreFairyBehaviour", FAIRY_ACTIONS)
 		end
 	end
 end
-
-function ENT:Greet(ply)
-	self.ai:RunAction("Greet", {
-		ply = ply,
-	})
-end
-
-do local ACTION = AISYS:RegisterAction("Greet", FAIRY_ACTIONS)
-	function ACTION:OnStart()
-		self.mover = self:RunAction("MoveTo", {--"MoveToVisibility", {
-			ent = self.params.ply,
-			distance = 100,
-			min_distance = 50,
-			offset = Vector(0, 0, 65),
-			aim_offset = Vector(0, 0, 65),
-			aim = true,
-			accuracy = 0.8
-		})
-	end
-	function ACTION:OnUpdate(action)
-		if action == self.mover and self.ent:GetPos():Distance(self.params.ply:GetPos()) <= 120 then
-			self.ent:Respond(self.params.ply, "Hey")
-			return self.STATE_FINISHED, "I greeted the player"
-		end
-		self.sys:FinishAction(self.mover, "Recreating due to interuption")
-		self.mover = self:RunAction("MoveTo", {--"MoveToVisibility", {
-			ent = self.params.ply,
-			distance = 100,
-			min_distance = 50,
-			offset = Vector(0, 0, 65),
-			aim_offset = Vector(0, 0, 65),
-			aim = true,
-			accuracy = 0.8
-		})
-	end
-end
-
-
-

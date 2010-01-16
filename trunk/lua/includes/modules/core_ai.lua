@@ -38,6 +38,12 @@ local aient_meta = {
 		}, self.ent.ai.actions[action_name] or AISYS.Actions[action_name])
 		table.insert(self.action_chain, action)
 		dbg(self, "(#%s) Starting action %s: %q", #self.action_chain, action_name, tostring(reason))
+		if params.pre_start_callback then -- I'm aware this is a bit excessive, but we need it for the building callbacks to set the entities of TwoEntTool for the building steps
+			local worked, res = pcall(params.pre_start_callback, action)
+			if not worked then
+				err("Action %s.params.pre_start_callback failed: %q", action.__id, res)
+			end
+		end
 		local last, worked, result, reason = self.current_action
 		self.current_action = action
 		if action.OnStart then
@@ -66,7 +72,7 @@ local aient_meta = {
 			for k = #self.action_chain, 1, -1 do
 				local action = self.action_chain[k]
 				if action and action.OnEvent then
-					local worked, res = action:OnEvent(event.name, event.params, handled)
+					local worked, res = pcall(action.OnEvent, action, event.name, event.params, handled)
 					if worked then
 						if res then
 							dbg(self, "Event %s handled by action %s", event.name, action.__id)
@@ -74,16 +80,20 @@ local aient_meta = {
 						end
 					else
 						err("Action %s:OnEvent failed: %q", action.__id, res)
+						self:FinishAction(action, "OnEvent error", true, "OnEvent error")
 					end
 				end
 			end
 		end
 		self.queued_events = {}
 		if self.current_action then
-			local result, reason
+			local worked, result, reason
 			if self.current_action.OnUpdate then
-				result, reason = self.current_action:OnUpdate()
-				if CurTime() > (LAST_PRINT or 0)+1 then
+				worked, result, reason = pcall(self.current_action.OnUpdate, self.current_action)
+				if not worked then
+					err("Action %s:OnUpdate failed (removing): %q", self.current_action.__id, result)
+					self:FinishAction(self.current_action, "OnUpdate error", false, "OnUpdate error")
+				elseif CurTime() > (LAST_PRINT or 0)+1 then
 					LAST_PRINT = CurTime()
 					dbg(self, "(#%s) Running update of %s = %q!", #self.action_chain, self.current_action.__id, tostring(result))
 				end
@@ -100,14 +110,21 @@ local aient_meta = {
 		end
 	end,
 	FinishAction = function(self, action, reason, invalid, by)
-		if not action then return end
-		dbg(self, "(#%s) Action %s finished from %s%s: %q", #self.action_chain, action.__id, tostring(by), invalid and " (says invalid)" or "", tostring(reason))
-		local result
+		if not action or action._finished then return end
+		reason = tostring(reason)
+		dbg(self, "(#%s) Action %s finished from %s%s: %q", #self.action_chain, action.__id, tostring(by), invalid and " (says invalid)" or "", reason)
+		local worked, result, res
 		if action.OnFinish then
-			result = action:OnFinish()
-			if action.params.finish_callback then
-				action.param.finish_callback(action, result, reason)
+			worked, result = pcall(action.OnFinish, action)
+			if not worked then
+				err("Action %s:OnFinish failed with: %q", action.__id, result)
+			elseif action.params.finish_callback then
+				worked, res = action.param.finish_callback(action, result, reason)
+				if not worked then
+					err("Action %s.params.finish_callback failed: %q", action.__id, res)
+				end
 			end
+			action.__finished = true
 		end
 		if action == self.current_action then
 			table.remove(self.action_chain, #self.action_chain)
@@ -126,14 +143,17 @@ local aient_meta = {
 		if buried_action then
 			dbg(self, "(#%s) Resuming action %s", #self.action_chain, buried_action.__id)
 			self.current_action = buried_action
-			local result, reason
+			local worked, result, reason
 			if buried_action.OnResume then
-				result, reason = buried_action:OnResume(action, finish_result)
-			end
-			if result == true then
-				self:FinishAction(buried_action, reason, false, "Resume!")
-			elseif result == false then
-				self:FinishAction(buried_action, reason, true, "Resume!")
+				worked, result, reason = pcall(buried_action.OnResume, buried_action, action, finish_result)
+				if not worked then
+					err("Action %s:OnResume failed (removing): %q", buried_action, result)
+					self:FinishAction(buried_action, "OnResume error", false, "OnResume error")
+				elseif result == true then
+					self:FinishAction(buried_action, reason, false, "Resume!")
+				elseif result == false then
+					self:FinishAction(buried_action, reason, true, "Resume!")
+				end
 			end
 		else
 			-- er...
@@ -149,6 +169,9 @@ local action_meta = {
 	STATE_FINISHED = true,
 	STATE_CONTINUE = nil,
 	STATE_INVALID = false,
+	--SUSPEND_ALLOW = nil,
+	--SUSPEND_DENY = true,
+	--SUSPEND_BURY = false,
 	Propagate = function(self, child, event, params)
 		if self.__parent then
 			if not (self.__parent.OnChildEvent and self.__parent:OnChildEvent(child.__id, child, self.__id, self, event, params)) then
