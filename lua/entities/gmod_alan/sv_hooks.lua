@@ -104,10 +104,10 @@ function meta:GodDisable()
 	GodDisable( self )
 end
 
-hook.Add("InitPostEntity", "Spawn Alan", function()
+function CreateAlan(position)
 	local entity = ents.Create("gmod_alan")
-	entity:SetPos(Vector(0,0,100))
+	entity:SetPos(position or Vector(0))
 	entity:Spawn()
 	entity:Activate()
 	entity:PhysWake()
-end)
+end

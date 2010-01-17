@@ -5,7 +5,7 @@ ENT.PrintName = "Alan"
 ENT.Author = "CapsAdmin"
 ENT.Contact = "sboyto@gmail.com"
 
-ENT.Spawnable	= true
+ENT.Spawnable	= false
 ENT.AdminSpawnable = false
 
 function ENT:SetupDataTables()

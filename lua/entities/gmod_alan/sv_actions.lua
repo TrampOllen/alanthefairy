@@ -12,14 +12,14 @@ do local ACTION = AISYS:RegisterAction("Build", FAIRY_ACTIONS)
 		self.ent.build_ents = {}
 		self.params.contraption.name = type(self.params.contraption.name) == "string" and self.params.contraption.name or "Unnamed Contraption"
 		MsgAll("Alan: Building contraption "..self.params.contraption.name.." by "..tostring(self.params.contraption.author))
-		self.current_actions = {}
+		self.ent.current_actions = {}
 		self.build_origin = Vector(0,0,0)
 		-- We need to use the pathfinding to find a blank space big enough to build in
 		self.step = 0
 	end
 	function ACTION:OnResume(action, state, result, reason)
-		if self.current_actions[action] then
-			self.current_actions[action] = nil
+		if self.ent.current_actions[action] then
+			self.ent.current_actions[action] = nil
 			if not result then
 				return self.STATE_INVALID, action.__id.." failed"
 			elseif state == action.STATE_INVALID then
@@ -48,7 +48,7 @@ do local ACTION = AISYS:RegisterAction("Build", FAIRY_ACTIONS)
 			else
 				distance = 80 -- Good value?
 			end
-			self.current_actions[self:RunAction("MoveToWorld", {--"MoveToWorldVisbility", {
+			self.ent.current_actions[self:RunAction("MoveToWorld", {--"MoveToWorldVisbility", {
 				min_distance = distance,
 				distance = distance+50,
 				aim = true,
@@ -76,7 +76,7 @@ do local ACTION = AISYS:RegisterAction("Build", FAIRY_ACTIONS)
 			if not (step.ent and entity and entity:IsValid()) then
 				return self.STATE_INVALID, string.format("Invalid ent ID %q of step #%s", tostring(step.ent), k)
 			end
-			self.current_actions[self:RunAction("ToolEnt", {
+			self.ent.current_actions[self:RunAction("ToolEnt", {
 				ent = entity,
 				finish_callback = function(action, state, result, reason)
 					if result then
@@ -97,7 +97,7 @@ do local ACTION = AISYS:RegisterAction("Build", FAIRY_ACTIONS)
 			if not (step.ent2 and entity2 and entity2:IsValid()) then
 				return self.STATE_INVALID, string.format("Invalid ent1 ID %q of step #%s", tostring(step.ent2), k)
 			end
-			self.current_actions[self:RunAction("ToolEnt", {
+			self.ent.current_actions[self:RunAction("ToolEnt", {
 				ent = entity2,
 				finish_callback = function(action, state, result, reason)
 					if result then
@@ -111,7 +111,7 @@ do local ACTION = AISYS:RegisterAction("Build", FAIRY_ACTIONS)
 					end
 				end,
 			})] = true
-			self.current_actions[self:RunAction("ToolEnt", {
+			self.ent.current_actions[self:RunAction("ToolEnt", {
 				ent = entity1
 			})] = true
 		end
@@ -428,8 +428,9 @@ do local ACTION = AISYS:RegisterAction("MoveToWorld", FAIRY_ACTIONS)
 			)*0.8
 		local l = (self.position-self.ent:GetPos()):Length()
 		--print("Very special dot product:", self.ent:GetAngles():Forward():Dot(self.ent.target_angle:Forward()), self.ent:GetAngles():Forward():Dot(self.ent.target_angle:Forward()) >= self.params.accuracy)
-		if l < self.distance and l > self.min_distance and (
-			not self.params.aim
+		--print( l < self.distance and l < self.min_distance,  self.params.aim and self.ent:GetAngles():Forward():Dot(self.ent.target_angle:Forward()) >= self.params.accuracy )
+		if l < self.distance and l < self.min_distance and (
+			self.params.aim
 			or self.ent:GetAngles():Forward():Dot(self.ent.target_angle:Forward()) >= self.params.accuracy
 		  ) then
 			self.success = true

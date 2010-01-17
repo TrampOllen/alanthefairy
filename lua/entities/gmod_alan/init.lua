@@ -24,6 +24,7 @@ include("sv_weapons.lua")
 include("sv_build.lua")
 include("sv_alan.lua")
 include("sv_actions.lua")
+include("sv_vehicles.lua")
 
 local alan_name = CreateConVar("alan_name", "Alan", true, false)
 local alan_color = CreateConVar("alan_color", "200 255 200", true, false)
@@ -102,7 +103,7 @@ end
 
 function ENT:OnRemove()
 	self:CreateWeaponOnRemove()
-	for key, weapon in pairs(self.weapons) do
+	for key, weapon in pairs(self.weapons or {}) do
 		weapon:Remove()
 	end
 	self:RemoveTimers()
@@ -123,12 +124,9 @@ function ENT:PhysicsSimulate( physicsobject, deltatime )
 		self:GetPos():Distance(self.target_position or self:GetPos())/100+0.001,
 		0.5
 	)
-	if self.laughing then
-		self.shadowcontrol.pos = self.target_position + self.laughing
-	else
-		self.shadowcontrol.pos = self.target_position + self.smoothsphererandom or self:GetPos() 
-	end
-	self.shadowcontrol.angle = self.smoothsphererandom ~= Vector(0) and self:GetVelocity():Angle()  or self.target_angle
+
+	self.shadowcontrol.pos = (self.target_position or self:GetPos())+(self.laughing or self.smoothsphererandom)
+	self.shadowcontrol.angle = self.smoothsphererandom ~= Vector(0) and self:GetVelocity():Angle() or self.target_angle
 	self.shadowcontrol.maxangular = 100000
 	self.shadowcontrol.maxangulardamp = 400
 	self.shadowcontrol.maxspeed = 1000000
@@ -152,8 +150,8 @@ function ENT:GetWeaponTrace()
 end
 
 function ENT:Think()
-	if self.curtime + self.randomspheretime <= CurTime() and self.userandommovement and ValidEntity(self.following) then
-		self.sphereposition = self:RandomSphere(self.following and self.following:BoundingRadius()*3)
+	if self.curtime + self.randomspheretime <= CurTime() and self.userandommovement then
+		self.sphereposition = self:RandomSphere(self.random_movement_radius )
 		self.randomspheretime = math.Rand(0,1)
 		self.curtime = CurTime()
 	end
@@ -178,9 +176,10 @@ function ENT:Think()
 	return true
 end
 
-function ENT:SetRandomMovement(boolean)
+function ENT:SetRandomMovement(boolean, radius)
 	self.userandommovement = boolean
-	self.sphereposition = boolean and Vector(0) or self.sphereposition
+	self.sphereposition = not boolean and Vector(0) or self.sphereposition
+	self.random_movement_radius = radius or 30
 end
 
 function ENT:SetPickedup(bool)
@@ -222,4 +221,16 @@ return false end
 
 function ENT:Use(activator)
 	self:Heal(activator, 100, 0.3)
+end
+
+function ENT:PossessRagdoll(ragdoll)
+	if ValidEntity(self.ragdoll) then constraint.RemoveConstraints(self.ragdoll, "Weld") end
+	local boneid = ragdoll:LookupBone("ValveBiped.Bip01_Head1")
+	local position, angle = ragdoll:GetBonePosition(boneid)
+	if position then
+		self.ragdoll = ragdoll
+		self:SetPos(position)
+		self:SetAngles(angle+Angle(90,-90,0))
+		constraint.Weld(ragdoll, self, 10, 0)
+	end
 end
