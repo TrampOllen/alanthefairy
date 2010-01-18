@@ -102,7 +102,6 @@ function ENT:OnTakeDamage(damageinfo)
 end
 
 function ENT:OnRemove()
-	self:CreateWeaponOnRemove()
 	for key, weapon in pairs(self.weapons or {}) do
 		weapon:Remove()
 	end
