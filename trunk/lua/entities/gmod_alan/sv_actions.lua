@@ -147,7 +147,6 @@ function ENT:Weld(ent1, ent2)
 		ent = ent1,
 	})
 end
-
 do local ACTION = AISYS:RegisterAction("ToolEnt", FAIRY_ACTIONS)
 	function ACTION:OnStart()
 		self.ent:SelectWeapon("tool")
