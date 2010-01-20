@@ -1,21 +1,19 @@
 function ENT:InitializeWeapons()
 	self:CreateGun{
-		name = "weapon_357", 
-		model = "models/weapons/W_357.mdl", 
-		damage = 50, 
-		delay = 0.5, 
-		distance = 100, 
-		saftey_distance = 0, 
+		name = "weapon_357",
+		model = "models/weapons/W_357.mdl",
+		damage = 50,
+		delay = 0.5,
+		saftey_distance = 0,
 		sound = "weapons/357/357_fire3.wav",
 	}
 	
 	self:CreateGun{
-		name = "weapon_pistol", 
-		model = "models/weapons/W_pistol.mdl", 
-		damage = 10, 
-		delay = 0.1, 
-		distance = 100, 
-		saftey_distance = 0, 
+		name = "weapon_pistol",
+		model = "models/weapons/W_pistol.mdl",
+		damage = 10,
+		delay = 0.1,
+		saftey_distance = 0,
 		sound = "weapons/pistol/pistol_fire2.wav",
 		offset = self:GetForward()*5,
 		angle = Angle(0,180,0),
@@ -23,21 +21,19 @@ function ENT:InitializeWeapons()
 	
 	self:CreateGun{
 		name = "weapon_tmp", 
-		model = "models/weapons/w_smg_tmp.mdl", 
-		damage = 10, 
-		delay = 0.05, 
-		distance = 100, 
-		saftey_distance = 0, 
+		model = "models/weapons/w_smg_tmp.mdl",
+		damage = 10,
+		delay = 0.05,
+		saftey_distance = 0,
 		sound = "weapons/tmp/tmp-1.wav",	
 	}
-		
+	
 	self:CreateGun{
-		name = "weapon_rpg", 
-		model = "models/weapons/w_rocket_launcher.mdl", 
-		damage = 0, 
-		delay = 1, 
-		distance = 400, 
-		saftey_distance = 500, 
+		name = "weapon_rpg",
+		model = "models/weapons/w_rocket_launcher.mdl",
+		damage = 0,
+		delay = 1,
+		saftey_distance = 500,
 		sound = "weapons/rpg/rocketfire1.wav",
 		offset = self:GetForward()*5,
 		angle = Angle(0,180,0),
@@ -65,7 +61,7 @@ function ENT:CreateGun(data)
 	self.weapons[data.name].angle_offset = data.angle or Angle(0)
 	self.weapons[data.name].owner = self
 	self.weapons[data.name].delay = data.delay or 0.1
-	self.weapons[data.name].distance = data.distance or 100
+	self.weapons[data.name].distance = data.distance or 10000
 	self.weapons[data.name].min_distance = data.safety_distance or 0
 	self.weapons[data.name].curtime = CurTime()
 	self.weapons[data.name].custom = data.custom
@@ -79,7 +75,8 @@ function ENT:SelectWeapon(mode)
 		weapon.dt.visible = false
 	end
 	if mode == "tool" then
-		self.activeweapon = self.tool self.tool:SetNoDraw(false)
+		self.activeweapon = self.tool
+		self.tool:SetNoDraw(false)
 		return
 	else
 		self.tool:SetNoDraw(true)
