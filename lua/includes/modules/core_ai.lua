@@ -132,14 +132,14 @@ local aient_meta = {
 			end
 		end
 	end,
-	_ResumeBuriedAction = function(self, state, action, finish_result)
+	_ResumeBuriedAction = function(self, action, state, finish_result)
 		local buried_action = self.action_chain[#self.action_chain]
 		if buried_action then
 			dbg(self, "(#%s) Resuming action %s", #self.action_chain, buried_action.__id)
 			self.current_action = buried_action
 			local worked, result, reason
 			if buried_action.OnResume then
-				worked, result, reason = pcall(buried_action.OnResume, state, buried_action, action, finish_result)
+				worked, result, reason = pcall(buried_action.OnResume, buried_action, action, state, finish_result)
 				if not worked then
 					err("Action %s:OnResume failed (removing): %q", buried_action, result)
 					self:FinishAction(buried_action, true, "OnResume error", false, "OnResume error")

@@ -125,7 +125,7 @@ function ENT:PhysicsSimulate( physicsobject, deltatime )
 	)
 
 	self.shadowcontrol.pos = (self.target_position or self:GetPos())+(self.laughing or self.smoothsphererandom)
-	self.shadowcontrol.angle = self.smoothsphererandom ~= Vector(0) and self:GetVelocity():Angle() or self.target_angle
+	self.shadowcontrol.angle = self.userandommovement and self:GetVelocity():Angle() or self.target_angle
 	self.shadowcontrol.maxangular = 100000
 	self.shadowcontrol.maxangulardamp = 400
 	self.shadowcontrol.maxspeed = 1000000

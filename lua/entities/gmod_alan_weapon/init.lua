@@ -31,7 +31,7 @@ function ENT:FireWeapon()
 		bullet.Src = attachment and attachment.Pos or self:GetPos()
 		bullet.Dir = attachment and attachment.Ang:Forward() or self:GetAngles():Forward()
 		bullet.Force = 1
-		bullet.Attacker = self 
+		bullet.Attacker = self.owner
 		bullet.Damage = self.damage
 		self:FireBullets(bullet)
 	end

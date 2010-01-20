@@ -17,12 +17,10 @@ function ENT:Think()
 		self.target_position = 0
 	end
 	
-	self.velocity = ( self.velocity + ( self.target_position - self.position ) * 4/100 ) * 95/100
+	self.velocity = ( self.velocity + ( self.target_position - self.position ) * 0.04 ) * 0.95
 	self.position = self.position + self.velocity
 	
 	self:SetModelScale(Vector()*math.max(self.position/100, 0))
-	
-	print(self.position, self.velocity, self.target_position, self.dt.visible)
-	
+		
 	self:NextThink(CurTime())
 return true end
