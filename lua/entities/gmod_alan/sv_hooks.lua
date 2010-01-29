@@ -43,6 +43,11 @@ function ENT:InitializeHooks(ai)
 
 	hook.Add("PlayerSay", "Alan"..self:EntIndex(), function(ply, text)
 		if not self:IsValid() then return end
+		if true then
+			self:Respond(ply, text)
+			self:ShouldLaugh(text, true)
+		return end
+		
 		local name = string.lower(GetConVar("alan_name"):GetString())
 		if string.find(text, "!lua") then return end
 

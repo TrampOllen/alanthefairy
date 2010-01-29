@@ -315,21 +315,23 @@ function ENT:Follow(ply)
 end
 do local ACTION = AISYS:RegisterAction("Follow", FAIRY_ACTIONS)
 	function ACTION:OnStart()
-		self.offset = self.params.offset or Vector()
+		self.offset = self.params.offset or Vector(0)
+		print("params offset",self.params.offset)
 		self.distance = self.params.distance or 100
-		self.ent:SetRandomMovement(true, self.params.random_movement_radius or 50)
+		self.ent:SetRandomMovement(true, self.params.random_movement_radius or 10)
 	end
 	
 	function ACTION:OnResume(action, state, result)
-		self.ent:SetRandomMovement(true, self.params.random_movement_radius or 50)
+		self.ent:SetRandomMovement(true, self.params.random_movement_radius or 10)
 		return self.STATE_INVALID, "I'm not sure what to do"
 	end
 	
 	function ACTION:OnUpdate()
 		if not ValidEntity(self.params.ent) then return self.STATE_INVALID, "Player no longer valid" end
-		local dir = (self.params.ent:GetPos() + self.offset - self.ent:GetPos())
+		local offset = self.params.ent:EyeAngles():Right()*self.offset.x + self.params.ent:EyeAngles():Forward()*self.offset.y + Vector(0,0,self.params.offset.z)
+		local dir = (self.params.ent:GetPos() + offset - self.ent:GetPos())
 		self.ent.target_position = self.params.ent:GetPos()
-			+self.params.offset
+			+offset
 			-dir:GetNormalized()*(math.min(
 				self.distance,
 				math.max(
@@ -573,9 +575,10 @@ do local ACTION = AISYS:RegisterAction("CoreFairyBehaviour", FAIRY_ACTIONS)
 		if closest then
 			self:RunAction("Follow", {
 				ent = closest,
-				min_distance = 64,
-				distance = 256,
-				offset = Vector(0, 0, 65)
+				min_distance = 1,
+				distance = 1,
+				offset = Vector(30, 20, 50),
+				random_movement_radius = 50,
 			})
 		else
 			self:RunAction("_wait", {duration = 5})
