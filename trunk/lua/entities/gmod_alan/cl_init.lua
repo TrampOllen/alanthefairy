@@ -1,16 +1,32 @@
 include("shared.lua")
+include("cl_zelda.lua")
 
 local model = Model("models/python1320/wing.mdl")
-local lightsprite = Material("sprites/light_ignorez")
-local yellowflare = "effects/yellowflare"
+local lightsprite = Material("Sprites/light_glow02_add")
+local yellowflare = "particle/fire"
 local trail = Material("trails/laser")
 
 local sunbeams = CreateClientConVar("alan_sunbeams", "1", true, false)
+local trails = CreateClientConVar("alan_trails", "1", true, false)
 language.Add("gmod_alan", "Fairy")
+
+local function Wrap( string, width )
+	local tbl = {}
+	for key, value in pairs(markup.Parse(string, width).blocks) do
+		table.insert(tbl, value.text)
+	end
+	return tbl
+end
+
 function ENT:Initialize()
+	
+	--self:DrawTranslucent()
+	
+	self:SetupThirdperson()
+	
 	self.speed = 6.3
 	self.flaplength = 50
-	self.wingsize = 0.4
+	self.wingsize = 0.3
 	
 	self.dotindex = 0
 	
@@ -45,8 +61,10 @@ function ENT:Initialize()
 		local uniqueID = um:ReadString()
 		local text = string.Replace(um:ReadString(), uniqueID, ply:Name())
 		chat.AddText(self.color, "Alan", Color( 255, 255, 255, 255 ), " to ", team.GetColor(ply:Team()), ply:GetName(), Color( 255, 255, 255, 255 ), ": " .. text)
+		self.current_text = Wrap(text or "", ScrW()/2)
+		self.current_player = ply
 	end)
-
+	
 	usermessage.Hook( "Alan:Respond", function( um )
 		local text = um:ReadString()
 		chat.AddText(self.color, "Alan", Color( 255, 255, 255 ), ": " .. text)
@@ -81,8 +99,12 @@ function ENT:Initialize()
 	end)
 end
 
+function ENT:SetAlanText(text)
+	self.current_text = Wrap(text or "", ScrW()/2)
+end
+
 function ENT:RenderTrail(material, color, length, startsize)
-	if material:IsError() then return end
+	if material:IsError() or not trails:GetBool() then return end
 	self.traildata = self.traildata or {}
 	self.traildata.points = self.traildata.points or {}
 
@@ -104,7 +126,15 @@ function ENT:VectorRandSphere()
 	return Angle(math.Rand(-180,180),math.Rand(-180,180),math.Rand(-180,180)):Up()
 end
 
+local once = true
+
 function ENT:Think()
+
+	if once then
+		self:SetupThirdperson()
+		once = false
+	end
+
 	self.color = Color(self:GetColor())
 	
 	if self:WaterLevel() > 0 then
@@ -142,6 +172,7 @@ function ENT:Think()
 		particle:SetStartSize(self.dt.size*2)
 		particle:SetEndSize(0)
 		particle:SetCollide(true)
+		particle:SetRoll(math.random())
 	end
 	if self.light then
 		self.light.Pos = self:GetPos()
@@ -160,8 +191,15 @@ function ENT:DrawEntityOutline()
 end
 
 local function EasySunbeams()
-	if not sunbeams:GetBool() then return end
 	for key, alan in pairs(ents.FindByClass("gmod_alan")) do
+		alan:RenderTrail(trail, alan.color, 100, alan.dt.size * 30)
+		cam.Start3D(EyePos(), EyeAngles())
+			render.SetMaterial(lightsprite)
+			render.DrawSprite(alan:GetPos(), alan.dt.size * 64, alan.dt.size * 64, alan.color)
+			render.DrawSprite(alan:GetPos(), alan.dt.size * 32, alan.dt.size * 32, alan.color)
+			render.DrawSprite(alan:GetPos(), alan.dt.size * 16, alan.dt.size * 16, alan.color)
+		cam.End3D()
+		if not sunbeams:GetBool() then return end
 		if alan and alan.sunbeams and alan.sunbeams.amount ~= 0 and EyePos():Distance(alan:GetPos()) < alan.sunbeams.distance then
 			local dotProduct = math.Clamp(EyeVector():DotProduct((alan:GetPos()-EyePos()):Normalize())-0.5, 0, 1) * 2
 			if dotProduct > 0 then
@@ -175,8 +213,6 @@ end
 hook.Add("RenderScreenspaceEffects", "Alan sunbeams", EasySunbeams)
 
 function ENT:Draw()
-		
-	self:RenderTrail(trail, self.color, 100, self.dt.size * 30)
 	
 	self.leftwing:SetModelScale(Vector(1,0.5,1)*self.dt.size*self.wingsize)
 	self.rightwing:SetModelScale(Vector(1,0.5,1)*self.dt.size*self.wingsize)
@@ -209,16 +245,11 @@ function ENT:Draw()
 	self.bleftwing:SetAngles(bleftangles)
 	self.brightwing:SetAngles(brightangles)
 	
-	render.SetMaterial(lightsprite)
-	render.DrawSprite(self:GetPos(), self.dt.size * 64, self.dt.size * 64, self.color)
-	render.DrawSprite(self:GetPos(), self.dt.size * 32, self.dt.size * 32, self.color)
-	render.DrawSprite(self:GetPos(), self.dt.size * 16, self.dt.size * 16, self.color)
 	self.leftwing:DrawModel()
 	self.rightwing:DrawModel()
 	self.bleftwing:DrawModel()
 	self.brightwing:DrawModel()
 end
-
 
 function ENT:OnRemove()
 	self.leftwing:Remove()

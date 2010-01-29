@@ -1,3 +1,8 @@
+if ValidEntity(alan) then alan:Remove() end
+
+timer.Simple(0.1, function() CreateAlan(Entity(1):GetEyeTrace().HitPos) end)
+
+
 AddCSLuaFile("cl_init.lua")
 AddCSLuaFile("shared.lua")
 
@@ -36,7 +41,6 @@ function ENT:Initialize()
 	local color = string.Explode(" ", alan_color:GetString())
 	if string.find(alan_color:GetString(), "random") then
 		local hsvcolor = HSVToColor(math.random(360), 0.3, 1)
-		PrintTable(hsvcolor)
 		timer.Simple(0.2, function() self:SetColor(hsvcolor.r,hsvcolor.g,hsvcolor.b,255) end)
 	else
 		self:SetColor(color[1],color[2],color[3], 255)
@@ -150,8 +154,8 @@ end
 
 function ENT:Think()
 	if self.curtime + self.randomspheretime <= CurTime() and self.userandommovement then
-		self.sphereposition = self:RandomSphere(self.random_movement_radius )
-		self.randomspheretime = math.Rand(0,1)
+		self.sphereposition = self:RandomSphere(self.random_movement_radius)
+		self.randomspheretime = math.Rand(0,3)
 		self.curtime = CurTime()
 	end
 	
@@ -178,7 +182,7 @@ end
 function ENT:SetRandomMovement(boolean, radius)
 	self.userandommovement = boolean
 	self.sphereposition = not boolean and Vector(0) or self.sphereposition
-	self.random_movement_radius = radius or 30
+	self.random_movement_radius = radius or 10
 end
 
 function ENT:SetPickedup(bool)
@@ -196,7 +200,7 @@ function ENT:Laugh()
 	local counter = 0
 	timer.Create("Alan Laugh "..self:EntIndex(), 0.1, 10, function()
 		counter = counter + 1
-		self.laughing = VectorRand()*100
+		self.laughing = VectorRand()*10
 		if counter >= 10 then
 			self.laughing = nil
 		end
