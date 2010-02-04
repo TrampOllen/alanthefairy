@@ -1,9 +1,7 @@
 if ValidEntity(alan) then alan:Remove() end
 
-timer.Simple(0.1, function() CreateAlan(Entity(1):GetEyeTrace().HitPos) end)
-
-
 AddCSLuaFile("cl_init.lua")
+AddCSLuaFile("cl_zelda.lua")
 AddCSLuaFile("shared.lua")
 
 resource.AddFile("sound/alan/flap.wav")

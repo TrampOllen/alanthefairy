@@ -213,7 +213,7 @@ end
 hook.Add("RenderScreenspaceEffects", "Alan sunbeams", EasySunbeams)
 
 function ENT:Draw()
-	
+		
 	self.leftwing:SetModelScale(Vector(1,0.5,1)*self.dt.size*self.wingsize)
 	self.rightwing:SetModelScale(Vector(1,0.5,1)*self.dt.size*self.wingsize)
 	
