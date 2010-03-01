@@ -1,3 +1,5 @@
+if true then return end
+
 local enable = CreateClientConVar("alan_zelda_enable", 0)
 
 function ENT:SetupThirdperson()

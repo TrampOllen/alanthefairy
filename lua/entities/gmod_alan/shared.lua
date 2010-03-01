@@ -2,11 +2,11 @@ ENT.Type = "anim"
 ENT.Base = "base_gmodentity"
 
 ENT.PrintName = "Alan"
-ENT.Author = "CapsAdmin"
+ENT.Author = "CapsAdmin and Deco"
 ENT.Contact = "sboyto@gmail.com"
 
 ENT.Spawnable	= false
-ENT.AdminSpawnable = false
+ENT.AdminSpawnable = true
 
 function ENT:SetupDataTables()
 	self:DTVar("Float", 0, "size")

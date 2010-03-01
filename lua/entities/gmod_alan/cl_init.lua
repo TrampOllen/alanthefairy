@@ -10,19 +10,27 @@ local sunbeams = CreateClientConVar("alan_sunbeams", "1", true, false)
 local trails = CreateClientConVar("alan_trails", "1", true, false)
 language.Add("gmod_alan", "Fairy")
 
-local function Wrap( string, width )
-	local tbl = {}
-	for key, value in pairs(markup.Parse(string, width).blocks) do
-		table.insert(tbl, value.text)
+function ENT:PlayPhrase(text)
+	local tbl = string.Explode(" ", text)
+	local duration = 0
+	for key, word in pairs(tbl) do
+		if word then
+			local path = "alan/midna/speech"..math.random(47)..".wav"
+			local pitch = math.random(120,125)
+			timer.Simple(duration, function() if IsValid(self) then self:EmitSound(path, 100, pitch) end end)
+			duration = duration + SoundDuration(path) * (pitch / 100) + (string.find(word, "%p") and 0.3 or 0)
+		end
 	end
-	return tbl
 end
+
 
 function ENT:Initialize()
 	
+	alan = self
+	
 	--self:DrawTranslucent()
 	
-	self:SetupThirdperson()
+	--self:SetupThirdperson()
 	
 	self.speed = 6.3
 	self.flaplength = 50
@@ -60,13 +68,14 @@ function ENT:Initialize()
 		local ply = um:ReadEntity()
 		local uniqueID = um:ReadString()
 		local text = string.Replace(um:ReadString(), uniqueID, ply:Name())
+		self:PlayPhrase(text)
 		chat.AddText(self.color, "Alan", Color( 255, 255, 255, 255 ), " to ", team.GetColor(ply:Team()), ply:GetName(), Color( 255, 255, 255, 255 ), ": " .. text)
-		self.current_text = Wrap(text or "", ScrW()/2)
 		self.current_player = ply
 	end)
 	
 	usermessage.Hook( "Alan:Respond", function( um )
 		local text = um:ReadString()
+		self:PlayPhrase(text)
 		chat.AddText(self.color, "Alan", Color( 255, 255, 255 ), ": " .. text)
 	end)
 	
@@ -99,10 +108,6 @@ function ENT:Initialize()
 	end)
 end
 
-function ENT:SetAlanText(text)
-	self.current_text = Wrap(text or "", ScrW()/2)
-end
-
 function ENT:RenderTrail(material, color, length, startsize)
 	if material:IsError() or not trails:GetBool() then return end
 	self.traildata = self.traildata or {}
@@ -130,10 +135,10 @@ local once = true
 
 function ENT:Think()
 
-	if once then
+--[[ 	if once then
 		self:SetupThirdperson()
 		once = false
-	end
+	end ]]
 
 	self.color = Color(self:GetColor())
 	
